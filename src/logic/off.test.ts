@@ -130,3 +130,9 @@ test('te lage kcal wordt gecorrigeerd met de macro\'s', () => {
   const bier = toFood({ code: '2', product_name: 'Bier', nutriments: { 'energy-kcal_100g': 43, carbohydrates_100g: 3.6, proteins_100g: 0.5 } })!;
   assert.equal(bier.per.kcal, 43);
 });
+
+test('ingetypte codes', () => {
+  assert.equal(normalizeBarcode('08719587122211'), '8719587122211');
+  assert.equal(normalizeBarcode('(01)08719587122211'), '8719587122211');
+  assert.equal(normalizeBarcode('0108719587122211'), '8719587122211');
+});

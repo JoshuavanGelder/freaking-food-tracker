@@ -7,7 +7,7 @@ import { Food, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../
 import { MealId, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, shadow } from '../theme';
-import { BackHeader, Button, Empty, IconButton, Row, Screen, T } from '../ui';
+import { BackHeader, Button, Empty, Field, IconButton, Row, Screen, T } from '../ui';
 
 type Hit =
   | { code: string; kind: 'loading' }
@@ -27,6 +27,18 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   const lastCode = useRef<string | null>(null);
   const busy = useRef(false);
   const cache = useRef<Record<string, Hit>>({});
+
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState('');
+  const typedCode = normalizeBarcode(typed.replace(/\s/g, ''));
+
+  const submitTyped = () => {
+    if (!typedCode) return;
+    lastCode.current = null;
+    setTyping(false);
+    setTyped('');
+    onScan({ data: typedCode });
+  };
 
   const onScan = async ({ data }: { data: string }) => {
     const code = normalizeBarcode(data);
@@ -113,11 +125,33 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
       <View style={[styles.frame, { borderColor: found ? '#4ADE80' : '#FFFFFF' }]} />
 
       <View style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 24, gap: 10 }}>
-        {!hit ? (
-          <View style={{ alignSelf: 'center', backgroundColor: '#000000AA', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16 }}>
-            <T color={C.white} weight="semibold">
-              Richt de camera op de barcode
+        {typing ? (
+          <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 16, gap: 10, ...shadow }}>
+            <Field
+              label="Cijfers onder de barcode"
+              value={typed}
+              onChangeText={setTyped}
+              keyboardType="number-pad"
+              placeholder="Bijv. 8719587122211"
+              invalid={typed.length > 7 && !typedCode}
+              onSubmitEditing={submitTyped}
+            />
+            <T size={12} color={C.muted}>
+              Bij vlees en vis van de versafdeling: typ de 14 cijfers na (01), zoals 08719587122211.
             </T>
+            <Row style={{ gap: 8 }}>
+              <Button small variant="outline" label="Annuleren" onPress={() => setTyping(false)} style={{ flex: 1 }} />
+              <Button small label="Zoeken" onPress={submitTyped} disabled={!typedCode} style={{ flex: 1 }} />
+            </Row>
+          </View>
+        ) : !hit ? (
+          <View style={{ alignItems: 'center', gap: 10 }}>
+            <View style={{ backgroundColor: '#000000AA', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16 }}>
+              <T color={C.white} weight="semibold">
+                Richt de camera op de barcode
+              </T>
+            </View>
+            <Button small variant="outline" label="Lukt het niet? Code intypen" onPress={() => setTyping(true)} />
           </View>
         ) : (
           <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 16, gap: 12, ...shadow }}>
