@@ -1,0 +1,29 @@
+{
+  "name": "freaking-food-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo-google-fonts/bricolage-grotesque": "*",
+    "@expo-google-fonts/figtree": "*",
+    "@react-native-async-storage/async-storage": "*",
+    "expo": "~57.0.0",
+    "expo-camera": "*",
+    "expo-font": "*",
+    "expo-status-bar": "*",
+    "react": "19.2.3",
+    "react-native": "~0.86.0",
+    "react-native-safe-area-context": "*",
+    "react-native-svg": "*"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "typescript": "*"
+  }
+}
