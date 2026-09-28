@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { forGrams, nl, parseNumber, sumNutrition } from '../logic/calc';
-import type { Food } from '../logic/off';
+import { Food, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
@@ -42,11 +42,19 @@ export function ProductScreen({
     [state.log, date, entryId],
   );
 
+  const u = unitOf(food);
+  const word = u === 'ml' ? 'ml' : 'gram';
   const setG = (v: number) => setText(String(Math.max(0, Math.round(v))));
-  const presets: { label: string; g: number }[] = [{ label: '100 g', g: 100 }];
-  if (food.servingG && Math.round(food.servingG) !== 100) presets.push({ label: `Portie ${nl(food.servingG)} g`, g: food.servingG });
+  const presets: { label: string; g: number }[] = [];
+  if (food.servingG) {
+    presets.push({
+      label: food.servingLabel ? `${food.servingLabel} · ${nl(food.servingG)} ${u}` : `Portie · ${nl(food.servingG)} ${u}`,
+      g: food.servingG,
+    });
+  }
   const last = state.lastPortion[food.id];
-  if (last && !presets.some((p) => Math.round(p.g) === Math.round(last))) presets.push({ label: `Vorige ${nl(last)} g`, g: last });
+  if (last && !presets.some((p) => Math.round(p.g) === Math.round(last))) presets.push({ label: `Vorige · ${nl(last)} ${u}`, g: last });
+  if (!presets.some((p) => Math.round(p.g) === 100)) presets.push({ label: `100 ${u}`, g: 100 });
 
   const save = () => {
     if (!valid) return;
@@ -75,7 +83,7 @@ export function ProductScreen({
         <H1 style={{ fontSize: 28 }}>{food.name}</H1>
         <T size={13} color={C.muted}>
           {food.brand ? `${food.brand} · ` : ''}
-          {food.source === 'off' ? 'Open Food Facts' : 'Eigen product'} · per 100 g: {nl(food.per.kcal)} kcal
+          {food.source === 'off' ? 'Open Food Facts' : 'Eigen product'} · per 100 {u}: {nl(food.per.kcal)} kcal
         </T>
       </View>
 
@@ -84,10 +92,10 @@ export function ProductScreen({
           Portie
         </T>
         <Row style={{ justifyContent: 'space-between' }}>
-          <IconButton icon="minus" label="10 gram minder" onPress={() => setG(g - 10)} color={C.ink} bg={C.track} size={48} />
+          <IconButton icon="minus" label={`10 ${word} minder`} onPress={() => setG(g - 10)} color={C.ink} bg={C.track} size={48} />
           <Row style={{ gap: 8 }}>
             <TextInput
-              accessibilityLabel="Portie in gram"
+              accessibilityLabel={`Portie in ${word}`}
               value={text}
               onChangeText={setText}
               keyboardType="number-pad"
@@ -107,14 +115,14 @@ export function ProductScreen({
               }}
             />
             <T size={18} weight="semibold" color={C.muted}>
-              gram
+              {word}
             </T>
           </Row>
-          <IconButton icon="plus" label="10 gram meer" onPress={() => setG(g + 10)} color={C.ink} bg={C.track} size={48} />
+          <IconButton icon="plus" label={`10 ${word} meer`} onPress={() => setG(g + 10)} color={C.ink} bg={C.track} size={48} />
         </Row>
         <Row style={{ gap: 8, flexWrap: 'wrap' }}>
           {presets.map((p) => (
-            <Chip key={p.label} label={p.label} on={Math.round(p.g) === Math.round(g)} onPress={() => setG(p.g)} />
+            <Chip key={p.label} wide label={p.label} on={Math.round(p.g) === Math.round(g)} onPress={() => setG(p.g)} />
           ))}
         </Row>
       </Card>

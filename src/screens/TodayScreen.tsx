@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { addDays, dateKey, forGrams, formatLong, formatShort, nl, streak, sumNutrition } from '../logic/calc';
 import { MEALS, MealId, itemsKey, useApp } from '../store';
+import { unitOf } from '../logic/off';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
 import { C, F, shadow } from '../theme';
@@ -146,7 +147,7 @@ export function TodayScreen() {
                           {e.food.name}
                         </T>
                         <T size={12} color={C.muted}>
-                          {nl(e.grams)} g · {nl((e.food.per.kcal * e.grams) / 100)} kcal
+                          {nl(e.grams)} {unitOf(e.food)} · {nl((e.food.per.kcal * e.grams) / 100)} kcal
                         </T>
                       </Pressable>
                       <IconButton icon="close" label={`${e.food.name} verwijderen`} onPress={() => actions.removeEntry(e.id)} iconSize={18} />

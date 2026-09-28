@@ -230,7 +230,7 @@ export function Segmented<V extends string>({
   );
 }
 
-export function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+export function Chip({ label, on, onPress, wide }: { label: string; on: boolean; onPress: () => void; wide?: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -238,7 +238,7 @@ export function Chip({ label, on, onPress }: { label: string; on: boolean; onPre
       onPress={onPress}
       style={{
         flexGrow: 1,
-        flexBasis: '30%',
+        flexBasis: wide ? 'auto' : '30%',
         height: 42,
         borderRadius: 10,
         borderWidth: 1.5,
@@ -246,7 +246,7 @@ export function Chip({ label, on, onPress }: { label: string; on: boolean; onPre
         backgroundColor: on ? C.accentTint : C.card,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: wide ? 14 : 8,
       }}
     >
       <Text style={{ fontFamily: F.semibold, fontSize: 14, color: on ? C.accent : C.ink }} numberOfLines={1}>

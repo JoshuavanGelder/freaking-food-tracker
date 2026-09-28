@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toFood } from './off.ts';
+import { toFood, parseAmount } from './off.ts';
 
 test('Open Food Facts product omzetten', () => {
   const f = toFood({
@@ -25,4 +25,60 @@ test('kJ wordt kcal als kcal ontbreekt', () => {
 test('product zonder naam of energie telt niet mee', () => {
   assert.equal(toFood({ code: '1', product_name: '', nutriments: { 'energy-kcal_100g': 1 } }), null);
   assert.equal(toFood({ code: '1', product_name: 'X', nutriments: {} }), null);
+});
+
+test('blikje frisdrank: eenheid ml en hele blikje als portie', () => {
+  const f = toFood({
+    code: '5',
+    product_name: 'Cola zero',
+    quantity: '33 cl',
+    product_quantity: '330',
+    product_quantity_unit: 'ml',
+    nutriments: { 'energy-kcal_100g': 0.3 },
+  })!;
+  assert.equal(f.unit, 'ml');
+  assert.equal(f.servingG, 330);
+  assert.equal(f.servingLabel, 'hele verpakking');
+});
+
+test('portie uit serving_size als serving_quantity ontbreekt', () => {
+  const f = toFood({
+    code: '6',
+    product_name: 'Witte bolletjes',
+    serving_size: '1 bolletje (50 g)',
+    quantity: '300 g',
+    nutriments: { 'energy-kcal_100g': 260 },
+  })!;
+  assert.equal(f.unit, 'g');
+  assert.equal(f.servingG, 50);
+  assert.equal(f.servingLabel, '1 bolletje');
+});
+
+test('portie per stuk uit "6 x 50 g"', () => {
+  const f = toFood({ code: '7', product_name: 'Bolletjes', quantity: '6 x 50 g', product_quantity: 300, nutriments: { 'energy-kcal_100g': 260 } })!;
+  assert.equal(f.servingG, 50);
+  assert.equal(f.servingLabel, '1 stuk');
+});
+
+test('grote verpakking zonder portie: geen standaardportie', () => {
+  const f = toFood({ code: '8', product_name: 'Rijst', quantity: '1 kg', nutriments: { 'energy-kcal_100g': 350 } })!;
+  assert.equal(f.servingG, undefined);
+  assert.equal(f.unit, 'g');
+});
+
+test('waarden alleen per portie worden omgerekend naar per 100', () => {
+  const f = toFood({
+    code: '9',
+    product_name: 'Reep',
+    serving_quantity: 50,
+    nutriments: { 'energy-kcal_serving': 250, proteins_serving: 5 },
+  })!;
+  assert.equal(f.per.kcal, 500);
+  assert.equal(f.per.e, 10);
+});
+
+test('hoeveelheden uit tekst', () => {
+  assert.deepEqual(parseAmount('1,5 l'), { n: 1500, unit: 'ml' });
+  assert.deepEqual(parseAmount('250ml'), { n: 250, unit: 'ml' });
+  assert.equal(parseAmount('1 stuk'), null);
 });

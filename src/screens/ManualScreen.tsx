@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { parseNumber } from '../logic/calc';
-import type { Food } from '../logic/off';
+import type { Food, Unit } from '../logic/off';
 import { MealId, uid, useApp } from '../store';
 import { useNav } from '../nav';
 import { C } from '../theme';
-import { BackHeader, Button, Card, Field, Screen, T } from '../ui';
+import { BackHeader, Button, Card, Field, Screen, Segmented, T } from '../ui';
 
 /** Eigen product invoeren vanaf het etiket (per 100 g). */
 export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: string; barcode?: string }) {
@@ -17,6 +17,7 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
   const [k, setK] = useState('');
   const [v, setV] = useState('');
   const [serving, setServing] = useState('');
+  const [unit, setUnit] = useState<Unit>('g');
   const [tried, setTried] = useState(false);
 
   const nKcal = parseNumber(kcal);
@@ -36,6 +37,7 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
       name: name.trim(),
       per: { kcal: nKcal!, e: nE, k: nK, v: nV },
       servingG: nServing && nServing > 0 ? nServing : undefined,
+      unit,
       source: 'eigen',
     };
     actions.saveFood(food);
@@ -52,8 +54,16 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
       ) : null}
       <Card>
         <Field label="Naam" value={name} onChangeText={setName} keyboardType="default" invalid={tried && !okName} placeholder="Bijv. Kwark van de markt" />
+        <Segmented<Unit>
+          options={[
+            { value: 'g', label: 'Vast (gram)' },
+            { value: 'ml', label: 'Drinken (ml)' },
+          ]}
+          value={unit}
+          onChange={setUnit}
+        />
         <T size={13} weight="semibold" color={C.muted}>
-          Voedingswaarden per 100 g (staat op het etiket)
+          Voedingswaarden per 100 {unit} (staat op het etiket)
         </T>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Field label="Energie" value={kcal} onChangeText={setKcal} unit="kcal" invalid={tried && !okKcal} style={{ flex: 1 }} />
@@ -63,11 +73,11 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
           <Field label="Koolhydraten" value={k} onChangeText={setK} unit="g" style={{ flex: 1 }} />
           <Field label="Vet" value={v} onChangeText={setV} unit="g" style={{ flex: 1 }} />
         </View>
-        <Field label="Gebruikelijke portie (optioneel)" value={serving} onChangeText={setServing} unit="g" />
+        <Field label="Gebruikelijke portie (optioneel)" value={serving} onChangeText={setServing} unit={unit} />
       </Card>
       {tried && !valid ? (
         <T size={13} weight="semibold" color={C.warn}>
-          Vul een naam in en de energie per 100 g (0–950 kcal).
+          Vul een naam in en de energie per 100 {unit} (0–950 kcal).
         </T>
       ) : null}
       <Button label="Opslaan en portie kiezen" onPress={save} />

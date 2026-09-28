@@ -23,7 +23,8 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     const code = data.trim();
     // Eerst kijken of we het product al kennen (werkt ook offline).
     const known = state.foods['off:' + code] ?? state.foods['eigen:' + code];
-    if (known) {
+    // Producten uit een oudere versie (zonder eenheid) halen we opnieuw op.
+    if (known && (known.source === 'eigen' || known.unit)) {
       nav.replace({ name: 'product', food: known, meal, date, grams: state.lastPortion[known.id] });
       return;
     }
@@ -31,7 +32,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     try {
       const r = await lookupBarcode(code);
       if (r.kind === 'found') {
-        nav.replace({ name: 'product', food: r.food, meal, date });
+        nav.replace({ name: 'product', food: r.food, meal, date, grams: state.lastPortion[r.food.id] });
         return;
       }
       setProblem({
