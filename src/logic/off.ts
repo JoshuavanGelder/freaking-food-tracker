@@ -196,3 +196,25 @@ export async function searchFoods(query: string): Promise<Food[]> {
   }
   return out;
 }
+
+function fmt(x: number, decimals = 0): string {
+  return x.toLocaleString('nl-NL', { maximumFractionDigits: decimals });
+}
+
+/** Aantal porties als de hoeveelheid een veelvoud van een halve portie is, anders null. */
+export function portionCount(food: Food, amount: number): number | null {
+  if (!food.servingG || food.servingG <= 0 || amount <= 0) return null;
+  const ratio = amount / food.servingG;
+  const half = Math.round(ratio * 2) / 2;
+  return half > 0 && Math.abs(ratio - half) < 0.01 ? half : null;
+}
+
+/** "2× 1 bolletje · 100 g" of gewoon "100 g". */
+export function amountText(food: Food, amount: number): string {
+  const u = unitOf(food);
+  const count = portionCount(food, amount);
+  const base = `${fmt(amount)} ${u}`;
+  if (count == null) return base;
+  const what = food.servingLabel && /^1\s/.test(food.servingLabel) ? food.servingLabel.replace(/^1\s+/, '') : 'portie';
+  return `${fmt(count, 1)}× ${what} · ${base}`;
+}

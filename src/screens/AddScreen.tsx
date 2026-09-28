@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { nl } from '../logic/calc';
-import { Food, searchFoods, unitOf } from '../logic/off';
+import { Food, amountText, searchFoods, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, F, shadow } from '../theme';
@@ -223,9 +223,7 @@ function FoodRow({
 }) {
   const u = unitOf(food);
   const p = portion ?? food.servingG;
-  const sub = p
-    ? `${food.servingLabel && !portion ? food.servingLabel + ' · ' : ''}${nl(p)} ${u} · ${nl((food.per.kcal * p) / 100)} kcal`
-    : `${nl(food.per.kcal)} kcal per 100 ${u}`;
+  const sub = p ? `${amountText(food, p)} · ${nl((food.per.kcal * p) / 100)} kcal` : `${nl(food.per.kcal)} kcal per 100 ${u}`;
   return (
     <Row style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 4, ...shadow }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${food.name} bekijken`} onPress={onOpen} style={{ flex: 1, gap: 2 }}>

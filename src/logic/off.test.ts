@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toFood, parseAmount } from './off.ts';
+import { toFood, parseAmount, portionCount, amountText } from './off.ts';
 
 test('Open Food Facts product omzetten', () => {
   const f = toFood({
@@ -81,4 +81,14 @@ test('hoeveelheden uit tekst', () => {
   assert.deepEqual(parseAmount('1,5 l'), { n: 1500, unit: 'ml' });
   assert.deepEqual(parseAmount('250ml'), { n: 250, unit: 'ml' });
   assert.equal(parseAmount('1 stuk'), null);
+});
+
+test('porties tellen en tonen', () => {
+  const bol = { id: 'x', name: 'Bolletje', per: { kcal: 260, e: 8, k: 50, v: 2 }, servingG: 50, servingLabel: '1 bolletje', unit: 'g' as const, source: 'off' as const };
+  assert.equal(portionCount(bol, 100), 2);
+  assert.equal(portionCount(bol, 75), 1.5);
+  assert.equal(portionCount(bol, 60), null);
+  assert.equal(amountText(bol, 100), '2× bolletje · 100 g');
+  assert.equal(amountText({ ...bol, servingLabel: undefined }, 25), '0,5× portie · 25 g');
+  assert.equal(amountText({ ...bol, servingG: undefined }, 80), '80 g');
 });

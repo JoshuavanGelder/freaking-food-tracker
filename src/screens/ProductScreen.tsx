@@ -1,12 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { forGrams, nl, parseNumber, sumNutrition } from '../logic/calc';
-import { Food, unitOf } from '../logic/off';
+import { Food, portionCount, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
 import { C, F } from '../theme';
-import { BackHeader, Button, Card, Chip, H1, HeartButton, IconButton, MacroTile, Row, Screen, T } from '../ui';
+import { BackHeader, Button, Card, Chip, H1, HeartButton, IconButton, MacroTile, Row, Screen, Segmented, T } from '../ui';
+
+function fmtCount(x: number): string {
+  return x.toLocaleString('nl-NL', { maximumFractionDigits: 1 });
+}
 
 export function ProductScreen({
   food,
@@ -25,9 +29,17 @@ export function ProductScreen({
   const nav = useNav();
   const goal = useGoal();
   const start = initial ?? food.servingG ?? 100;
+  const startCount = portionCount(food, start);
+  const [mode, setMode] = useState<'portie' | 'gram'>(food.servingG && (initial == null || startCount != null) ? 'portie' : 'gram');
   const [text, setText] = useState(String(Math.round(start)));
+  const [countText, setCountText] = useState(fmtCount(startCount ?? 1));
+  const [sizeText, setSizeText] = useState(food.servingG ? String(Math.round(food.servingG)) : '');
 
-  const parsed = parseNumber(text);
+  const size = parseNumber(sizeText);
+  const sizeOk = size != null && size > 0 && size <= 5000;
+  const count = parseNumber(countText);
+  const countOk = count != null && count > 0 && count <= 50;
+  const parsed = mode === 'portie' ? (sizeOk && countOk ? count! * size! : null) : parseNumber(text);
   const valid = parsed != null && parsed > 0 && parsed <= 5000;
   const g = valid ? parsed! : 0;
   const n = forGrams(food.per, g);
@@ -45,6 +57,15 @@ export function ProductScreen({
   const u = unitOf(food);
   const word = u === 'ml' ? 'ml' : 'gram';
   const setG = (v: number) => setText(String(Math.max(0, Math.round(v))));
+  const setCount = (v: number) => setCountText(fmtCount(Math.max(0.5, Math.round(v * 2) / 2)));
+  const switchMode = (m: 'portie' | 'gram') => {
+    if (m === mode) return;
+    if (m === 'gram' && valid) setG(g);
+    if (m === 'portie' && valid && sizeOk) setCount(g / size!);
+    setMode(m);
+  };
+  const portionWhat =
+    food.servingLabel && /^1\s/.test(food.servingLabel) ? food.servingLabel.replace(/^1\s+/, '') : 'portie';
   const presets: { label: string; g: number }[] = [];
   if (food.servingG) {
     presets.push({
@@ -58,8 +79,14 @@ export function ProductScreen({
 
   const save = () => {
     if (!valid) return;
+    // Nieuwe portiegrootte onthouden voor dit product.
+    let f = food;
+    if (mode === 'portie' && sizeOk && Math.round(size!) !== Math.round(food.servingG ?? -1)) {
+      f = { ...food, servingG: size!, servingLabel: undefined };
+      actions.saveFood(f);
+    }
     if (entryId) actions.updateEntry(entryId, g);
-    else actions.addEntry(date, meal, food, g);
+    else actions.addEntry(date, meal, f, g);
     nav.home();
   };
 
@@ -88,43 +115,91 @@ export function ProductScreen({
       </View>
 
       <Card style={{ padding: 20, gap: 16 }}>
-        <T size={14} weight="semibold" color={C.muted}>
-          Portie
-        </T>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <IconButton icon="minus" label={`10 ${word} minder`} onPress={() => setG(g - 10)} color={C.ink} bg={C.track} size={48} />
-          <Row style={{ gap: 8 }}>
-            <TextInput
-              accessibilityLabel={`Portie in ${word}`}
-              value={text}
-              onChangeText={setText}
-              keyboardType="number-pad"
-              selectTextOnFocus
-              style={{
-                width: 128,
-                height: 56,
-                borderWidth: 1.5,
-                borderColor: valid ? C.line : C.warn,
-                borderRadius: 14,
-                backgroundColor: C.bg,
-                fontFamily: F.display,
-                fontSize: 34,
-                color: C.ink,
-                textAlign: 'center',
-                paddingVertical: 0,
-              }}
+        <Segmented<'portie' | 'gram'>
+          options={[
+            { value: 'portie', label: 'Aantal porties' },
+            { value: 'gram', label: u === 'ml' ? 'Milliliter' : 'Gram' },
+          ]}
+          value={mode}
+          onChange={switchMode}
+        />
+        {mode === 'portie' ? (
+          <>
+            <Stepper
+              value={countText}
+              onChange={setCountText}
+              onMinus={() => setCount((count ?? 1) - (count != null && count <= 1 ? 0.5 : 1))}
+              onPlus={() => setCount((count ?? 0) + 1)}
+              unit={count === 1 ? portionWhat : portionWhat === 'portie' ? 'porties' : `× ${portionWhat}`}
+              label="Aantal porties"
+              ok={countOk}
+              keyboardType="decimal-pad"
             />
-            <T size={18} weight="semibold" color={C.muted}>
-              {word}
-            </T>
-          </Row>
-          <IconButton icon="plus" label={`10 ${word} meer`} onPress={() => setG(g + 10)} color={C.ink} bg={C.track} size={48} />
-        </Row>
-        <Row style={{ gap: 8, flexWrap: 'wrap' }}>
-          {presets.map((p) => (
-            <Chip key={p.label} wide label={p.label} on={Math.round(p.g) === Math.round(g)} onPress={() => setG(p.g)} />
-          ))}
-        </Row>
+            <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+              {[0.5, 1, 2, 3].map((c) => (
+                <Chip key={c} label={fmtCount(c)} on={count === c} onPress={() => setCount(c)} />
+              ))}
+            </Row>
+            <Row style={{ gap: 10 }}>
+              <T size={14} color={C.muted} style={{ flex: 1 }}>
+                {food.servingLabel ? `1 ${portionWhat} is` : '1 portie is'}
+              </T>
+              <View style={{ width: 120 }}>
+                <TextInput
+                  accessibilityLabel={`Portiegrootte in ${word}`}
+                  value={sizeText}
+                  onChangeText={setSizeText}
+                  keyboardType="number-pad"
+                  placeholder="?"
+                  placeholderTextColor={C.warn}
+                  style={{
+                    height: 44,
+                    borderWidth: 1.5,
+                    borderColor: sizeOk ? C.line : C.warn,
+                    borderRadius: 12,
+                    backgroundColor: C.card,
+                    paddingLeft: 12,
+                    paddingRight: 40,
+                    fontFamily: F.semibold,
+                    fontSize: 16,
+                    color: C.ink,
+                    textAlign: 'right',
+                  }}
+                />
+                <T size={14} color={C.muted} style={{ position: 'absolute', right: 12, top: 12 }}>
+                  {u}
+                </T>
+              </View>
+            </Row>
+            {!sizeOk ? (
+              <T size={13} weight="semibold" color={C.warn}>
+                Vul in hoeveel {word} één portie is. De app onthoudt dit voor dit product.
+              </T>
+            ) : (
+              <T size={13} color={C.muted}>
+                Samen {nl(g)} {u}
+              </T>
+            )}
+          </>
+        ) : (
+          <>
+            <Stepper
+              value={text}
+              onChange={setText}
+              onMinus={() => setG(g - 10)}
+              onPlus={() => setG(g + 10)}
+              unit={word}
+              label={`Hoeveelheid in ${word}`}
+              ok={valid}
+              keyboardType="number-pad"
+            />
+            <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+              {presets.map((p) => (
+                <Chip key={p.label} wide label={p.label} on={Math.round(p.g) === Math.round(g)} onPress={() => setG(p.g)} />
+              ))}
+            </Row>
+          </>
+        )}
       </Card>
 
       <Card style={{ padding: 20, gap: 16 }}>
@@ -157,5 +232,57 @@ export function ProductScreen({
       <Button label={entryId ? 'Opslaan' : `Toevoegen aan ${mealLabel(meal)}`} onPress={save} disabled={!valid} />
       {entryId ? <Button variant="danger" label="Verwijderen" onPress={remove} /> : null}
     </Screen>
+  );
+}
+
+function Stepper({
+  value,
+  onChange,
+  onMinus,
+  onPlus,
+  unit,
+  label,
+  ok,
+  keyboardType,
+}: {
+  value: string;
+  onChange: (t: string) => void;
+  onMinus: () => void;
+  onPlus: () => void;
+  unit: string;
+  label: string;
+  ok: boolean;
+  keyboardType: 'number-pad' | 'decimal-pad';
+}) {
+  return (
+    <Row style={{ justifyContent: 'space-between', gap: 8 }}>
+      <IconButton icon="minus" label="Minder" onPress={onMinus} color={C.ink} bg={C.track} size={48} />
+      <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+        <TextInput
+          accessibilityLabel={label}
+          value={value}
+          onChangeText={onChange}
+          keyboardType={keyboardType}
+          selectTextOnFocus
+          style={{
+            width: 128,
+            height: 56,
+            borderWidth: 1.5,
+            borderColor: ok ? C.line : C.warn,
+            borderRadius: 14,
+            backgroundColor: C.bg,
+            fontFamily: F.display,
+            fontSize: 34,
+            color: C.ink,
+            textAlign: 'center',
+            paddingVertical: 0,
+          }}
+        />
+        <T size={14} weight="semibold" color={C.muted} numberOfLines={1}>
+          {unit}
+        </T>
+      </View>
+      <IconButton icon="plus" label="Meer" onPress={onPlus} color={C.ink} bg={C.track} size={48} />
+    </Row>
   );
 }
