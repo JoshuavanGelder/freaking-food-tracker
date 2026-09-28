@@ -180,7 +180,14 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
       </View>
       <View style={[styles.frame, { borderColor: found ? '#4ADE80' : '#FFFFFF' }]} />
 
-      <View style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 24, gap: 10 }}>
+      {/* Bij intypen staat het vak bovenin, zodat het toetsenbord het niet bedekt. */}
+      <View
+        style={
+          typing
+            ? { position: 'absolute', left: 16, right: 16, top: insets.top + 64, gap: 10 }
+            : { position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 24, gap: 10 }
+        }
+      >
         {typing ? (
           <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 16, gap: 10, ...shadow }}>
             <Field
