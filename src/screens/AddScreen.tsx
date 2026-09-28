@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { nl } from '../logic/calc';
 import { Food, amountText, searchFoods, unitOf } from '../logic/off';
+import { nevoToFood, searchIn } from '../logic/nevo';
+import { NEVO } from '../data/nevo';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, F, shadow } from '../theme';
@@ -18,6 +20,18 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const [results, setResults] = useState<Food[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moreNevo, setMoreNevo] = useState(false);
+
+  // Basisproducten uit NEVO zoeken we direct tijdens het typen (staat in de app, dus ook offline).
+  const searching = query.trim().length >= 2;
+  const nevoHits = useMemo(() => (searching ? searchIn(NEVO.items, query, 40).map(nevoToFood) : []), [query, searching]);
+
+  const onType = (t: string) => {
+    setQuery(t);
+    setResults(null);
+    setError(null);
+    setMoreNevo(false);
+  };
 
   const search = async () => {
     const q = query.trim();
@@ -37,6 +51,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
     setQuery('');
     setResults(null);
     setError(null);
+    setMoreNevo(false);
   };
 
   const open = (food: Food) => nav.push({ name: 'product', food, meal, date, grams: state.lastPortion[food.id] });
@@ -69,7 +84,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
         <TextInput
           accessibilityLabel="Zoek een product"
           value={query}
-          onChangeText={setQuery}
+          onChangeText={onType}
           onSubmitEditing={search}
           returnKeyType="search"
           placeholder="Zoek een product, bijv. kwark"
@@ -96,17 +111,11 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
 
       <Button label="Scan barcode" icon="barcode" onPress={() => nav.push({ name: 'scan', meal, date })} />
 
-      {busy ? (
-        <ActivityIndicator color={C.accent} style={{ marginTop: 20 }} />
-      ) : error ? (
-        <Empty title="Dat lukte niet" text={error}>
-          <Button small variant="outline" label="Opnieuw proberen" onPress={search} />
-        </Empty>
-      ) : results ? (
+      {searching ? (
         <View style={{ gap: 8 }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <T size={13} weight="bold" color={C.muted}>
-              {results.length} resultaten uit Open Food Facts
+              {nevoHits.length ? `Basisproducten (NEVO) · ${nevoHits.length}${nevoHits.length === 40 ? '+' : ''}` : 'Zoekresultaten'}
             </T>
             <Pressable onPress={clear} hitSlop={10}>
               <T size={13} weight="bold" color={C.accent}>
@@ -114,12 +123,40 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
               </T>
             </Pressable>
           </Row>
-          {results.length ? (
-            list(results)
-          ) : (
-            <Empty title="Niets gevonden" text="Probeer een ander woord, of voer het product zelf in.">
-              <Button small variant="outline" label="Zelf invoeren" onPress={() => nav.push({ name: 'manual', meal, date })} />
+          {nevoHits.length ? list(moreNevo ? nevoHits : nevoHits.slice(0, 8)) : null}
+          {nevoHits.length > 8 && !moreNevo ? (
+            <Button small variant="ghost" label={`Meer basisproducten tonen`} onPress={() => setMoreNevo(true)} />
+          ) : null}
+
+          {busy ? (
+            <ActivityIndicator color={C.accent} style={{ marginTop: 12 }} />
+          ) : error ? (
+            <Empty title="Merkproducten zoeken lukte niet" text={error}>
+              <Button small variant="outline" label="Opnieuw proberen" onPress={search} />
             </Empty>
+          ) : results ? (
+            <>
+              <T size={13} weight="bold" color={C.muted} style={{ marginTop: 8 }}>
+                Merkproducten (Open Food Facts) · {results.length}
+              </T>
+              {results.length ? list(results) : null}
+              {results.length || nevoHits.length ? (
+                <Button small variant="ghost" label="Staat het er niet bij? Zelf invoeren" onPress={() => nav.push({ name: 'manual', meal, date })} />
+              ) : (
+                <Empty title="Niets gevonden" text="Probeer een ander woord, of voer het product zelf in.">
+                  <Button small variant="outline" label="Zelf invoeren" onPress={() => nav.push({ name: 'manual', meal, date })} />
+                </Empty>
+              )}
+            </>
+          ) : (
+            <Button
+              small
+              variant="outline"
+              icon="search"
+              label={`Zoek merken: "${query.trim()}"`}
+              onPress={search}
+              style={{ marginTop: nevoHits.length ? 4 : 0 }}
+            />
           )}
         </View>
       ) : (

@@ -113,7 +113,7 @@ export function ProductScreen({
         <H1 style={{ fontSize: 28 }}>{food.name}</H1>
         <T size={13} color={C.muted}>
           {food.brand ? `${food.brand} · ` : ''}
-          {food.source === 'off' ? 'Open Food Facts' : 'Eigen product'} · per 100 {u}: {nl(food.per.kcal)} kcal
+          {food.source === 'off' ? 'Open Food Facts' : food.source === 'nevo' ? 'NEVO (RIVM)' : 'Eigen product'} · per 100 {u}: {nl(food.per.kcal)} kcal
         </T>
         {food.note ? (
           <T size={12} color={C.warn}>

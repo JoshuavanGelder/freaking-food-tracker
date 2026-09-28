@@ -24,7 +24,7 @@ export type Food = {
   note?: string;
   /** Barcode, ook bij eigen producten, zodat scannen ze terugvindt. */
   barcode?: string;
-  source: 'off' | 'eigen';
+  source: 'off' | 'eigen' | 'nevo';
 };
 
 /**
