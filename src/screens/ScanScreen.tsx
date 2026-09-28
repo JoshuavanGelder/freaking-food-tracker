@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as IMns from 'expo-image-manipulator';
 import { decodeJpegBase64 } from '../logic/photoscan';
+import { readBarcodeFromFile } from '../../modules/barcode-photo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nl } from '../logic/calc';
 import { Food, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../logic/off';
@@ -63,10 +64,14 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     setPhotoBusy(true);
     setPhotoMsg(null);
     try {
-      const pic = await camRef.current.takePictureAsync({ quality: 0.7, shutterSound: false, skipProcessing: true });
-      const b64 = pic?.uri ? await shrinkToBase64(pic.uri) : null;
-      await new Promise((r) => setTimeout(r, 30));
-      const text = b64 ? decodeJpegBase64(b64) : null;
+      const pic = await camRef.current.takePictureAsync({ quality: 0.8, shutterSound: false, skipProcessing: true });
+      // Eerst de native lezer (zxing-cpp, kan ook DataBar Expanded), anders de JavaScript-lezer.
+      let text = pic?.uri ? await readBarcodeFromFile(pic.uri) : null;
+      if (!text && pic?.uri) {
+        const b64 = await shrinkToBase64(pic.uri);
+        await new Promise((r) => setTimeout(r, 30));
+        text = b64 ? decodeJpegBase64(b64) : null;
+      }
       if (text && normalizeBarcode(text)) {
         lastCode.current = null;
         await onScan({ data: text });
