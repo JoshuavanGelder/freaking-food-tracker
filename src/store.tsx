@@ -191,7 +191,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       importData: (id, entries, favMeals) =>
         setState((s) => {
           let next = s;
-          for (const e of entries) next = rememberFood(next, e.food, e.grams);
+          for (const e of entries) if (!e.summary) next = rememberFood(next, e.food, e.grams);
           const newFavs: FavMeal[] = favMeals
             .map((fm) => ({
               id: uid(),

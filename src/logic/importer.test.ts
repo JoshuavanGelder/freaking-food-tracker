@@ -27,6 +27,22 @@ test('import lezen en omrekenen naar per 100', () => {
   assert.equal(entries[1].food.servingLabel, '1 bol');
 });
 
+test('dagtotalen op andere datums', () => {
+  const r = parseImport(
+    JSON.stringify({
+      ...sample,
+      items: [{ meal: 'snacks', name: 'Dagtotaal', amount: 100, kcal: 2304, e: 157, summary: true, date: '2026-09-21' }],
+    }),
+  );
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  const [e] = toEntries(r.file);
+  assert.equal(e.date, '2026-09-21');
+  assert.equal(e.food.id, 'summary:2026-09-21');
+  assert.equal(e.summary, true);
+  assert.equal(e.food.per.kcal, 2304);
+});
+
 test('foute import geeft een duidelijke melding', () => {
   assert.equal(parseImport('').ok, false);
   assert.equal(parseImport('{kapot').ok, false);

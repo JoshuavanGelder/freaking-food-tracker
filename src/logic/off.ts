@@ -211,6 +211,7 @@ export function portionCount(food: Food, amount: number): number | null {
 
 /** "2× 1 bolletje · 100 g" of gewoon "100 g". */
 export function amountText(food: Food, amount: number): string {
+  if (food.id.startsWith('summary:')) return 'dagtotaal';
   const u = unitOf(food);
   const count = portionCount(food, amount);
   const base = `${fmt(amount)} ${u}`;

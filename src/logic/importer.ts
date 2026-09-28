@@ -18,6 +18,10 @@ export type ImportItem = {
   fiber?: number;
   portions?: number;
   portionLabel?: string;
+  /** Andere datum dan die van het bestand. */
+  date?: string;
+  /** Alleen een dagtotaal, zonder losse producten (komt niet in Recent/Eigen). */
+  summary?: boolean;
 };
 
 export type ImportFile = {
@@ -30,7 +34,7 @@ export type ImportFile = {
   favMeals?: { name: string; meal: MealKey }[];
 };
 
-export type ImportEntry = { date: string; meal: MealKey; food: Food; grams: number };
+export type ImportEntry = { date: string; meal: MealKey; food: Food; grams: number; summary?: boolean };
 
 const MEALS: MealKey[] = ['ontbijt', 'lunch', 'diner', 'snacks'];
 
@@ -61,6 +65,7 @@ export function parseImport(text: string): { ok: true; file: ImportFile } | { ok
     if (typeof it.name !== 'string' || !it.name.trim()) return { ok: false, error: `${where}: naam ontbreekt.` };
     if (!(it.amount > 0)) return { ok: false, error: `${where}: hoeveelheid ontbreekt.` };
     if (!(it.kcal >= 0)) return { ok: false, error: `${where}: kcal ontbreekt.` };
+    if (it.date != null && !/^\d{4}-\d{2}-\d{2}$/.test(it.date)) return { ok: false, error: `${where}: ongeldige datum.` };
   }
   return { ok: true, file: raw as ImportFile };
 }
@@ -69,8 +74,9 @@ export function parseImport(text: string): { ok: true; file: ImportFile } | { ok
 export function toEntries(file: ImportFile): ImportEntry[] {
   return file.items.map((it) => {
     const f = 100 / it.amount;
+    const date = it.date ?? file.date;
     const food: Food = {
-      id: 'import:' + slug(`${it.name} ${it.brand ?? ''}`),
+      id: it.summary ? `summary:${date}` : 'import:' + slug(`${it.name} ${it.brand ?? ''}`),
       name: it.name.trim(),
       brand: it.brand,
       per: {
@@ -85,6 +91,6 @@ export function toEntries(file: ImportFile): ImportEntry[] {
       servingLabel: it.portionLabel,
       source: 'eigen',
     };
-    return { date: file.date, meal: it.meal, food, grams: it.amount };
+    return { date, meal: it.meal, food, grams: it.amount, summary: it.summary };
   });
 }

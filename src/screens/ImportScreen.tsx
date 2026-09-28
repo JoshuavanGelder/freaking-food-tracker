@@ -18,6 +18,7 @@ export function ImportScreen() {
   const file = parsed && parsed.ok ? parsed.file : null;
   const entries = useMemo(() => (file ? toEntries(file) : []), [file]);
   const already = !!file && state.imports.includes(file.id);
+  const dates = useMemo(() => [...new Set(entries.map((e) => e.date))].sort().reverse(), [entries]);
 
   const paste = async () => {
     const t = await Clipboard.getStringAsync();
@@ -35,7 +36,7 @@ export function ImportScreen() {
     return (
       <Screen>
         <BackHeader title="Importeren" onBack={nav.back} />
-        <Empty title="Gelukt" text={`${entries.length} producten staan nu in je logboek van ${formatLong(file.date).toLowerCase()}.`}>
+        <Empty title="Gelukt" text={`Je logboek is aangevuld voor ${dates.length} ${dates.length === 1 ? 'dag' : 'dagen'}.`}>
           <Button small label="Bekijk je dag" onPress={nav.home} />
         </Empty>
       </Screen>
@@ -79,47 +80,52 @@ export function ImportScreen() {
 
       {file ? (
         <>
-          <Card style={{ gap: 10 }}>
-            <T size={16} weight="bold">
-              {formatLong(file.date)}
+          {dates.map((d) => (
+            <Card key={d} style={{ gap: 10 }}>
+              <T size={16} weight="bold">
+                {formatLong(d)}
+              </T>
+              {MEALS.map((m) => {
+                const items = entries.filter((e) => e.date === d && e.meal === m.id);
+                if (!items.length) return null;
+                const kcal = items.reduce((s, e) => s + (e.food.per.kcal * e.grams) / 100, 0);
+                const onlySummary = items.every((e) => e.summary);
+                return (
+                  <View key={m.id} style={{ gap: 2 }}>
+                    <Row style={{ justifyContent: 'space-between' }}>
+                      <T size={15} weight="semibold">
+                        {onlySummary ? 'Dagtotaal' : m.label}
+                      </T>
+                      <T size={15} weight="bold">
+                        {nl(kcal)} kcal
+                      </T>
+                    </Row>
+                    {!onlySummary ? (
+                      <T size={13} color={C.muted}>
+                        {items.map((e) => e.food.name).join(', ')}
+                      </T>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </Card>
+          ))}
+          {file.source ? (
+            <T size={12} color={C.muted}>
+              Bron: {file.source}
             </T>
-            {file.source ? (
-              <T size={12} color={C.muted}>
-                Bron: {file.source}
-              </T>
-            ) : null}
-            {MEALS.map((m) => {
-              const items = entries.filter((e) => e.meal === m.id);
-              if (!items.length) return null;
-              const kcal = items.reduce((s, e) => s + (e.food.per.kcal * e.grams) / 100, 0);
-              return (
-                <View key={m.id} style={{ gap: 2 }}>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <T size={15} weight="semibold">
-                      {m.label}
-                    </T>
-                    <T size={15} weight="bold">
-                      {nl(kcal)} kcal
-                    </T>
-                  </Row>
-                  <T size={13} color={C.muted}>
-                    {items.map((e) => e.food.name).join(', ')}
-                  </T>
-                </View>
-              );
-            })}
-            {file.favMeals?.length ? (
-              <T size={12} color={C.muted}>
-                Wordt ook opgeslagen als favoriete maaltijd: {file.favMeals.map((f) => f.name).join(', ')}
-              </T>
-            ) : null}
-          </Card>
+          ) : null}
+          {file.favMeals?.length ? (
+            <T size={12} color={C.muted}>
+              Wordt ook opgeslagen als favoriete maaltijd: {file.favMeals.map((f) => f.name).join(', ')}
+            </T>
+          ) : null}
           {already ? (
             <T size={13} weight="semibold" color={C.warn}>
               Deze tekst heb je al geïmporteerd. Hij wordt niet nog een keer toegevoegd.
             </T>
           ) : null}
-          <Button label={`${entries.length} producten toevoegen`} onPress={run} disabled={already} />
+          <Button label={`Toevoegen aan ${dates.length} ${dates.length === 1 ? 'dag' : 'dagen'}`} onPress={run} disabled={already} />
         </>
       ) : null}
     </Screen>
