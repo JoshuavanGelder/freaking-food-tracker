@@ -41,11 +41,21 @@ jobs:
 
       - name: Fotoscanner-test (waarschuwt alleen)
         continue-on-error: true
-        run: npm run test:scan
+        run: |
+          set +e
+          npm run test:scan > scan.log 2>&1
+          code=$?
+          grep -E "gelezen als|^not ok|^# (pass|fail)|Error|error" scan.log | head -40 | while IFS= read -r line; do echo "::warning title=scan::$line"; done
+          exit $code
 
       - name: Typecheck (waarschuwt alleen)
         continue-on-error: true
-        run: npx tsc --noEmit
+        run: |
+          set +e
+          npx tsc --noEmit > tsc.log 2>&1
+          code=$?
+          grep "error TS" tsc.log | head -30 | while IFS= read -r line; do echo "::warning title=tsc::$line"; done
+          exit $code
 
       - name: Android-project genereren
         run: npx expo prebuild --platform android --no-install
