@@ -94,7 +94,15 @@ jobs:
 
       - name: APK bouwen
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+        run: |
+          set +e
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a > ../gradle.log 2>&1
+          code=$?
+          tail -n 80 ../gradle.log
+          if [ $code -ne 0 ]; then
+            grep -E "^e: |error:|What went wrong|Execution failed|Could not|uses-sdk|minSdk|Unresolved|> " ../gradle.log | head -40 | while IFS= read -r line; do echo "::warning title=gradle::$line"; done
+          fi
+          exit $code
 
       - name: APK hernoemen
         run: cp android/app/build/outputs/apk/release/app-release.apk freaking-food-tracker-${{ github.run_number }}.apk
