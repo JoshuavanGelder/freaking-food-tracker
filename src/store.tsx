@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_GOALS, Goals, Profile, WeightEntry, dailyWeights, dateKey } from './logic/calc';
 import type { Food } from './logic/off';
+import type { ImportEntry } from './logic/importer';
 
 export type MealId = 'ontbijt' | 'lunch' | 'diner' | 'snacks';
 
@@ -40,6 +41,7 @@ export type AppState = {
   recent: string[];
   lastPortion: Record<string, number>;
   favMeals: FavMeal[];
+  imports: string[];
 };
 
 const EMPTY: AppState = {
@@ -53,6 +55,7 @@ const EMPTY: AppState = {
   recent: [],
   lastPortion: {},
   favMeals: [],
+  imports: [],
 };
 
 const KEY = 'fft-state-v1';
@@ -91,6 +94,7 @@ type Actions = {
   toggleFavMeal: (name: string, items: FavMealItem[]) => void;
   removeFavMeal: (id: string) => void;
   addFavMealTo: (fav: FavMeal, date: string, meal: MealId) => void;
+  importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
 };
 
 type Ctx = { state: AppState; loaded: boolean; actions: Actions };
@@ -182,6 +186,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return {
             ...next,
             log: [...next.log, ...fav.items.map((it) => ({ id: uid(), date, meal, food: it.food, grams: it.grams }))],
+          };
+        }),
+      importData: (id, entries, favMeals) =>
+        setState((s) => {
+          let next = s;
+          for (const e of entries) next = rememberFood(next, e.food, e.grams);
+          const newFavs: FavMeal[] = favMeals
+            .map((fm) => ({
+              id: uid(),
+              name: fm.name,
+              items: entries.filter((e) => e.meal === fm.meal).map((e) => ({ food: e.food, grams: e.grams })),
+            }))
+            .filter((fm) => fm.items.length > 0 && !s.favMeals.some((x) => itemsKey(x.items) === itemsKey(fm.items)));
+          return {
+            ...next,
+            log: [...next.log, ...entries.map((e) => ({ id: uid(), date: e.date, meal: e.meal, food: e.food, grams: e.grams }))],
+            favMeals: [...newFavs, ...next.favMeals],
+            imports: [...next.imports, id],
           };
         }),
     }),

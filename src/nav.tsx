@@ -10,7 +10,8 @@ export type Route =
   | { name: 'scan'; meal: MealId; date: string }
   | { name: 'product'; food: Food; meal: MealId; date: string; entryId?: string; grams?: number }
   | { name: 'manual'; meal: MealId; date: string; barcode?: string }
-  | { name: 'profile' };
+  | { name: 'profile' }
+  | { name: 'import' };
 
 export type Nav = {
   tab: Tab;

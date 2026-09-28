@@ -19,6 +19,7 @@ import { WeightScreen } from './src/screens/WeightScreen';
 import { GoalsScreen } from './src/screens/GoalsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ImportScreen } from './src/screens/ImportScreen';
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -124,6 +125,9 @@ function Root() {
         break;
       case 'profile':
         screen = <ProfileScreen key={stack.length} />;
+        break;
+      case 'import':
+        screen = <ImportScreen key={stack.length} />;
         break;
     }
   }

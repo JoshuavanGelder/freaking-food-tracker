@@ -154,6 +154,16 @@ export function GoalsScreen() {
           <MacroTile label={`Vet · ${nl(goal.split.v)}%`} value={`${goal.grams.v} g`} color={C.fat} />
         </Row>
       </Card>
+
+      <Card>
+        <T size={14} weight="semibold" color={C.muted}>
+          Gegevens
+        </T>
+        <T size={13} color={C.muted}>
+          Eten overzetten, bijvoorbeeld uit Foodvisor: plak de importtekst die je van Claude krijgt.
+        </T>
+        <Button small variant="outline" label="Importeren" onPress={() => nav.push({ name: 'import' })} />
+      </Card>
     </Screen>
   );
 }

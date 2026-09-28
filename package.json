@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts",
+    "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts src/logic/importer.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "@react-native-async-storage/async-storage": "*",
     "expo": "~57.0.0",
     "expo-camera": "*",
+    "expo-clipboard": "*",
     "expo-font": "*",
     "expo-status-bar": "*",
     "react": "19.2.3",
