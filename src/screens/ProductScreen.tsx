@@ -211,14 +211,17 @@ export function ProductScreen({
             {nl(n.kcal)} kcal
           </T>
         </Row>
-        <Row style={{ gap: 10 }}>
+        <Row style={{ gap: 8 }}>
           <MacroTile label="Eiwit" value={`${nl(n.e, 1)} g`} color={C.protein} />
-          <MacroTile label="Koolhydraten" value={`${nl(n.k, 1)} g`} color={C.carbs} />
+          <MacroTile label="Koolh." value={`${nl(n.k, 1)} g`} color={C.carbs} />
           <MacroTile label="Vet" value={`${nl(n.v, 1)} g`} color={C.fat} />
+          <MacroTile label="Vezels" value={n.fiber != null ? `${nl(n.fiber, 1)} g` : '?'} color={C.fiber} />
         </Row>
-        <T size={13} color={C.muted}>
-          Vezels: {n.fiber != null ? `${nl(n.fiber, 1)} g` : 'niet bekend'}
-        </T>
+        {n.fiber == null ? (
+          <T size={12} color={C.muted}>
+            Van dit product zijn geen vezels bekend.
+          </T>
+        ) : null}
       </Card>
 
       {goal && left != null ? (
@@ -227,7 +230,10 @@ export function ProductScreen({
             {left >= 0 ? `Daarna nog ${nl(left)} kcal over` : `Daarna ${nl(-left)} kcal boven je doel`}
           </T>
           <T size={13} color={C.soft}>
-            Eiwit die dag: {nl(dayTotals.e + n.e)} van {nl(goal.grams.e)} g
+            Die dag: eiwit {nl(dayTotals.e + n.e)}/{nl(goal.grams.e)} g · koolh. {nl(dayTotals.k + n.k)}/{nl(goal.grams.k)} g
+          </T>
+          <T size={13} color={C.soft}>
+            vet {nl(dayTotals.v + n.v)}/{nl(goal.grams.v)} g · vezels {nl((dayTotals.fiber ?? 0) + (n.fiber ?? 0))}/{nl(state.goals.fiberGoal || 30)} g
           </T>
         </View>
       ) : null}

@@ -363,12 +363,12 @@ export function Ring({
 
 export function MacroTile({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.bg, padding: 12, gap: 6 }}>
-      <View style={{ width: 24, height: 4, borderRadius: 2, backgroundColor: color }} />
-      <T size={18} weight="bold">
+    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.bg, paddingVertical: 10, paddingHorizontal: 8, gap: 5 }}>
+      <View style={{ width: 20, height: 4, borderRadius: 2, backgroundColor: color }} />
+      <T size={15} weight="bold" numberOfLines={1}>
         {value}
       </T>
-      <T size={12} color={C.muted}>
+      <T size={11} color={C.muted} numberOfLines={1}>
         {label}
       </T>
     </View>

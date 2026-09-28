@@ -158,6 +158,7 @@ export function GoalsScreen() {
           <MacroTile label={`Eiwit · ${nl(goal.split.e)}%`} value={`${goal.grams.e} g`} color={C.protein} />
           <MacroTile label={`Koolh. · ${nl(goal.split.k)}%`} value={`${goal.grams.k} g`} color={C.carbs} />
           <MacroTile label={`Vet · ${nl(goal.split.v)}%`} value={`${goal.grams.v} g`} color={C.fat} />
+          <MacroTile label="Vezels · doel" value={`${nl(g.fiberGoal || 30)} g`} color={C.fiber} />
         </Row>
       </Card>
 
