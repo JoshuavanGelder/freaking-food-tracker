@@ -33,6 +33,17 @@ jobs:
       - name: Versies afstemmen op de Expo SDK
         run: npx expo install --fix -- --legacy-peer-deps
 
+      - name: Controle eigen native module (autolinking)
+        continue-on-error: true
+        run: |
+          npx expo-modules-autolinking search > modules.json 2>&1 || true
+          if grep -q barcode-photo modules.json; then
+            echo "::notice title=autolink::barcode-photo wordt gevonden door autolinking"
+          else
+            echo "::warning title=autolink::barcode-photo NIET gevonden door autolinking"
+            head -c 600 modules.json | tr '\n' ' ' | sed 's/^/::warning title=autolink::/'; echo
+          fi
+
       - name: Fotoscanner-test (waarschuwt alleen)
         continue-on-error: true
         run: |
@@ -89,8 +100,10 @@ jobs:
 
       - name: Controle native scanner
         run: |
-          if unzip -l freaking-food-tracker-${{ github.run_number }}.apk | grep -qi zxing; then
-            echo "::notice title=native::zxing-cpp zit in de APK"
+          unzip -l freaking-food-tracker-${{ github.run_number }}.apk > apk-inhoud.txt || true
+          hits=$(grep -ci zxing apk-inhoud.txt || true)
+          if [ "${hits:-0}" -gt 0 ]; then
+            grep -i zxing apk-inhoud.txt | head -3 | while IFS= read -r line; do echo "::notice title=native::$line"; done
           else
             echo "::warning title=native::zxing-cpp ontbreekt in de APK"
           fi
