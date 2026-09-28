@@ -4,6 +4,7 @@ import { GoalMode, MACRO_PLANS, activityLabel, nl, parseNumber, splitTotal } fro
 import { useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
+import { NEVO } from '../data/nevo';
 import { C } from '../theme';
 import { Button, Card, Chip, Field, H1, MacroTile, Row, Screen, Segmented, T } from '../ui';
 
@@ -181,6 +182,11 @@ export function GoalsScreen() {
         </T>
         <Button small variant="outline" label="Importeren" onPress={() => nav.push({ name: 'import' })} />
       </Card>
+
+      <T size={11} color={C.muted} style={{ lineHeight: 16, paddingHorizontal: 4 }}>
+        Voedingswaarden van basisproducten zijn gebaseerd op gegevens van {NEVO.source}. Merkproducten komen uit Open
+        Food Facts (openfoodfacts.org, ODbL); eigen producten voer je zelf in.
+      </T>
     </Screen>
   );
 }

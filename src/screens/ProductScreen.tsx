@@ -5,6 +5,7 @@ import { Food, portionCount, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
+import { NEVO } from '../data/nevo';
 import { C, F } from '../theme';
 import { BackHeader, Button, Card, Chip, H1, HeartButton, IconButton, MacroTile, Row, Screen, Segmented, T } from '../ui';
 
@@ -115,6 +116,11 @@ export function ProductScreen({
           {food.brand ? `${food.brand} · ` : ''}
           {food.source === 'off' ? 'Open Food Facts' : food.source === 'nevo' ? 'NEVO (RIVM)' : 'Eigen product'} · per 100 {u}: {nl(food.per.kcal)} kcal
         </T>
+        {food.source === 'nevo' ? (
+          <T size={11} color={C.muted}>
+            Gebaseerd op gegevens van {NEVO.source}
+          </T>
+        ) : null}
         {food.note ? (
           <T size={12} color={C.warn}>
             {food.note}

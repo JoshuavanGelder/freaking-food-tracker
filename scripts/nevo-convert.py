@@ -3,7 +3,7 @@
 
 Gebruik: python3 scripts/nevo-convert.py NEVO2025_v9.0.csv [versie]
 Werkt met de CSV (| of ; als scheidingsteken) of de Excel-versie (.xlsx, vereist openpyxl).
-De waarden worden niet aangepast, alleen afgerond op 1 decimaal (kcal op hele getallen).
+De waarden worden ongewijzigd overgenomen (voorwaarde van het RIVM).
 """
 import csv, io, json, os, re, sys
 
@@ -76,7 +76,8 @@ def num(v):
 
 
 def r1(x):
-    return None if x is None else round(x, 1)
+    """Ongewijzigd; alleen 2.0 als 2 opslaan (scheelt ruimte)."""
+    return None if x is None else (int(x) if float(x).is_integer() else x)
 
 
 def main():
@@ -102,7 +103,7 @@ def main():
             continue
         unit = 'ml' if 'ml' in str(get(r, 'qty')).lower() else 'g'
         syn = str(get(r, 'syn') or '').strip()
-        items.append([int(code), name, syn, unit, round(kcal), r1(e), r1(k), r1(v),
+        items.append([int(code), name, syn, unit, r1(kcal), r1(e), r1(k), r1(v),
                       r1(num(get(r, 'fiber'))), r1(num(get(r, 'sugar'))), r1(num(get(r, 'satFat')))])
 
     m = re.search(r'(20\d\d)[^0-9]*v?(\d+(?:\.\d+)?)', os.path.basename(path))
