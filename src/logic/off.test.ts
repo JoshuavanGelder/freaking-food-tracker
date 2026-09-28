@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toFood, parseAmount, portionCount, amountText } from './off.ts';
+import { toFood, parseAmount, portionCount, amountText, normalizeBarcode, isStoreLabel } from './off.ts';
 
 test('Open Food Facts product omzetten', () => {
   const f = toFood({
@@ -91,4 +91,42 @@ test('porties tellen en tonen', () => {
   assert.equal(amountText(bol, 100), '2× bolletje · 100 g');
   assert.equal(amountText({ ...bol, servingLabel: undefined }, 25), '0,5× portie · 25 g');
   assert.equal(amountText({ ...bol, servingG: undefined }, 80), '80 g');
+});
+
+test('barcodes normaliseren, ook GS1-128 van de versafdeling', () => {
+  assert.equal(normalizeBarcode('8710522979495'), '8710522979495');
+  assert.equal(normalizeBarcode('0108719587122211172609303103000300'), '8719587122211');
+  assert.equal(normalizeBarcode('\u001d0108719587122211172609303103000300'), '8719587122211');
+  assert.equal(normalizeBarcode('(01)08719587122211(17)260930'), '8719587122211');
+  assert.equal(normalizeBarcode('https://id.example.com/01/08719587122211/10/ABC'), '8719587122211');
+  assert.equal(normalizeBarcode('hallo'), null);
+  assert.equal(isStoreLabel('2123456789012'), true);
+});
+
+test('bereide portie groter dan de verpakking wordt genegeerd', () => {
+  const f = toFood({
+    code: '8710522979495',
+    product_name: 'Mix voor macaroni',
+    quantity: '61 g',
+    product_quantity: 61,
+    serving_size: '462 g',
+    serving_quantity: 462,
+    nutriments: { 'energy-kcal_100g': 278, proteins_100g: 9.9, carbohydrates_100g: 50, fat_100g: 3, fiber_100g: 8.9 },
+  })!;
+  assert.equal(f.servingG, undefined);
+  assert.equal(f.packageG, 61);
+  assert.equal(f.per.kcal, 278);
+});
+
+test('te lage kcal wordt gecorrigeerd met de macro\'s', () => {
+  const f = toFood({
+    code: '1',
+    product_name: 'Mix',
+    nutriments: { 'energy-kcal_100g': 11, proteins_100g: 9.9, carbohydrates_100g: 50, fat_100g: 3, fiber_100g: 8.9 },
+  })!;
+  assert.ok(Math.abs(f.per.kcal - (39.6 + 200 + 27 + 17.8)) < 1e-9);
+  assert.ok(f.note);
+  // drankje met alcohol: hoger dan de macro's is prima
+  const bier = toFood({ code: '2', product_name: 'Bier', nutriments: { 'energy-kcal_100g': 43, carbohydrates_100g: 3.6, proteins_100g: 0.5 } })!;
+  assert.equal(bier.per.kcal, 43);
 });

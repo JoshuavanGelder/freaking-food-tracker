@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nl } from '../logic/calc';
-import { Food, lookupBarcode, unitOf } from '../logic/off';
+import { Food, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../logic/off';
 import { MealId, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, shadow } from '../theme';
@@ -29,13 +29,23 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   const cache = useRef<Record<string, Hit>>({});
 
   const onScan = async ({ data }: { data: string }) => {
-    const code = data.trim();
+    const code = normalizeBarcode(data);
     if (!code || code === lastCode.current || busy.current) return;
     lastCode.current = code;
 
-    // Eerst kijken of we het product al kennen (werkt ook offline).
-    const known = state.foods['off:' + code] ?? state.foods['eigen:' + code];
-    if (known && (known.source === 'eigen' || known.unit)) {
+    if (isStoreLabel(code)) {
+      setHit({
+        code,
+        kind: 'missing',
+        text: 'Dit is een weegetiket van de winkel; die codes staan in geen enkele database. Scan de gewone barcode op de verpakking als die er is, of zoek op naam.',
+      });
+      return;
+    }
+
+    // Eerst kijken of we het product al kennen (werkt ook offline). Je eigen aangepaste versie gaat voor.
+    const known = state.foods['eigen:' + code] ?? state.foods['off:' + code];
+    // Gescande producten uit een oudere app-versie (zonder barcode-veld) halen we opnieuw op.
+    if (known && (known.source === 'eigen' || known.barcode)) {
       setHit({ code, kind: 'found', food: known });
       return;
     }
@@ -94,7 +104,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
+        barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'datamatrix', 'qr'] }}
         onBarcodeScanned={onScan}
       />
       <View style={{ position: 'absolute', top: insets.top + 8, left: 8 }}>
@@ -146,18 +156,22 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
                     Barcode {hit.code}
                   </T>
                   <T size={13} color={C.muted}>
-                    {hit.text} Voer het zelf in; de volgende keer herkent de app hem.
+                    {hit.text}
+                    {isStoreLabel(hit.code) ? '' : ' Voer het zelf in vanaf het etiket; de volgende keer herkent de app hem.'}
                   </T>
                 </View>
                 <Row style={{ gap: 8 }}>
-                  <Button small variant="outline" label="Opnieuw" onPress={clear} style={{ flex: 1 }} />
+                  <Button small variant="outline" label="Zoeken" onPress={nav.back} style={{ flex: 1 }} />
                   <Button
                     small
                     label="Zelf invoeren"
-                    onPress={() => nav.replace({ name: 'manual', meal, date, barcode: hit.code })}
-                    style={{ flex: 2 }}
+                    onPress={() =>
+                      nav.replace({ name: 'manual', meal, date, barcode: isStoreLabel(hit.code) ? undefined : hit.code })
+                    }
+                    style={{ flex: 1 }}
                   />
                 </Row>
+                <Button small variant="ghost" label="Opnieuw scannen" onPress={clear} />
               </>
             )}
             {hit.kind !== 'loading' ? (

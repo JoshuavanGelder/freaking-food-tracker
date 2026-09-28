@@ -9,7 +9,7 @@ export type Route =
   | { name: 'add'; meal: MealId; date: string }
   | { name: 'scan'; meal: MealId; date: string }
   | { name: 'product'; food: Food; meal: MealId; date: string; entryId?: string; grams?: number }
-  | { name: 'manual'; meal: MealId; date: string; barcode?: string }
+  | { name: 'manual'; meal: MealId; date: string; barcode?: string; base?: Food }
   | { name: 'profile' }
   | { name: 'import' };
 

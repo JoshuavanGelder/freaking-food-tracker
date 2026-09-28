@@ -18,8 +18,40 @@ export type Food = {
   servingLabel?: string;
   /** Eenheid van porties; ontbreekt bij producten van vóór versie 2 (dan gram). */
   unit?: Unit;
+  /** Inhoud van de hele verpakking in g of ml. */
+  packageG?: number;
+  /** Uitleg als de app de gegevens heeft gecorrigeerd. */
+  note?: string;
+  /** Barcode, ook bij eigen producten, zodat scannen ze terugvindt. */
+  barcode?: string;
   source: 'off' | 'eigen';
 };
+
+/**
+ * Haalt een GTIN (EAN) uit wat de camera leest: gewone EAN-13/EAN-8/UPC,
+ * GS1-128-etiketten van de slager of versafdeling "(01)08719587122211(17)260930…",
+ * of een GS1 Digital Link-QR-code ".../01/08719587122211".
+ */
+export function normalizeBarcode(raw: string): string | null {
+  let t = raw.replace(/[\u0000-\u001f]/g, '').trim();
+  t = t.replace(/^\][A-Za-z]\d/, '');
+  let gtin: string | null = null;
+  const link = t.match(/\/01\/(\d{8,14})/);
+  const paren = t.match(/\(01\)\s*(\d{14})/);
+  if (link) gtin = link[1];
+  else if (paren) gtin = paren[1];
+  else if (/^\d{8}$|^\d{12,14}$/.test(t)) gtin = t;
+  else if (/^01\d{14}/.test(t)) gtin = t.slice(2, 16);
+  if (!gtin) return null;
+  // GTIN-14 met voorloopnul is gewoon een EAN-13.
+  while (gtin.length > 13 && gtin.startsWith('0')) gtin = gtin.slice(1);
+  return gtin.length >= 8 ? gtin : null;
+}
+
+/** Winkeletiketten met gewicht of prijs in de code (EAN die met 2 begint) staan nooit in een database. */
+export function isStoreLabel(code: string): boolean {
+  return code.length === 13 && code.startsWith('2');
+}
 
 export function unitOf(f: Food): Unit {
   return f.unit ?? 'g';
@@ -80,16 +112,23 @@ function detectUnit(p: any): Unit {
 }
 
 /** Kiest een logische standaardportie: opgegeven portie, per stuk, of de hele (kleine) verpakking. */
+function packageTotal(p: any): number | undefined {
+  return num(p.product_quantity) ?? parseAmount(p.quantity)?.n;
+}
+
 function detectServing(p: any, unit: Unit): { n: number; label?: string } | undefined {
   const sizeText = typeof p.serving_size === 'string' ? p.serving_size.trim() : '';
   const fromText = parseAmount(sizeText);
   const sq = num(p.serving_quantity) ?? (fromText && fromText.unit === unit ? fromText.n : undefined);
+  const total = packageTotal(p);
+  // Een portie die groter is dan de hele verpakking is een bereide portie
+  // (bijv. een saus- of maaltijdmix met gehakt erbij): die gebruiken we niet.
+  if (sq && total && sq > total * 1.05) return undefined;
   if (sq && sq > 0) {
     // "1 bolletje (50 g)" -> "1 bolletje"; "250 ml" -> geen label
     const label = sizeText.replace(/\(.*?\)/g, '').replace(/(\d+(?:[.,]\d+)?)\s*(kg|gr|gram|g|ml|cl|dl|liter|ltr|l)\b/gi, '').trim();
     return { n: sq, label: label && /[a-z]/i.test(label) ? label : undefined };
   }
-  const total = num(p.product_quantity) ?? parseAmount(p.quantity)?.n;
   const qText = typeof p.quantity === 'string' ? p.quantity : '';
   const count = qText.match(/(\d+)\s*(?:x|×|stuks|stuk|st\b|st\.)/i);
   if (total && count) {
@@ -131,23 +170,35 @@ export function toFood(p: any): Food | null {
     const v = num(n[key + suffix]);
     return v == null ? undefined : v * factor;
   };
+  const per = {
+    kcal,
+    e: val('proteins') ?? 0,
+    k: val('carbohydrates') ?? 0,
+    v: val('fat') ?? 0,
+    fiber: val('fiber'),
+    salt: val('salt'),
+    satFat: val('saturated-fat'),
+    sugar: val('sugars'),
+  };
+  // Controle: kcal kan nooit veel lager zijn dan wat eiwit, koolhydraten en vet samen leveren.
+  let note: string | undefined;
+  const fromMacros = 4 * per.e + 4 * per.k + 9 * per.v + 2 * (per.fiber ?? 0);
+  if (fromMacros >= 20 && per.kcal < fromMacros * 0.6) {
+    note = `Open Food Facts gaf ${Math.round(per.kcal)} kcal per 100 ${unit}; dat klopt niet met eiwit, koolhydraten en vet. De app rekent met ${Math.round(fromMacros)} kcal.`;
+    per.kcal = fromMacros;
+  }
+  const total = packageTotal(p);
   return {
     id: 'off:' + p.code,
     name,
     brand: brand || undefined,
-    per: {
-      kcal,
-      e: val('proteins') ?? 0,
-      k: val('carbohydrates') ?? 0,
-      v: val('fat') ?? 0,
-      fiber: val('fiber'),
-      salt: val('salt'),
-      satFat: val('saturated-fat'),
-      sugar: val('sugars'),
-    },
+    per,
     servingG: serving?.n,
     servingLabel: serving?.label,
     unit,
+    packageG: total && total > 0 ? total : undefined,
+    note,
+    barcode: String(p.code),
     source: 'off',
   };
 }

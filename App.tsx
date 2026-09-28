@@ -121,7 +121,7 @@ function Root() {
         );
         break;
       case 'manual':
-        screen = <ManualScreen key={stack.length} meal={route.meal} date={route.date} barcode={route.barcode} />;
+        screen = <ManualScreen key={stack.length} meal={route.meal} date={route.date} barcode={route.barcode} base={route.base} />;
         break;
       case 'profile':
         screen = <ProfileScreen key={stack.length} />;

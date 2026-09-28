@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { forGrams, nl, parseNumber, sumNutrition } from '../logic/calc';
 import { Food, portionCount, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
@@ -76,6 +76,9 @@ export function ProductScreen({
   const last = state.lastPortion[food.id];
   if (last && !presets.some((p) => Math.round(p.g) === Math.round(last))) presets.push({ label: `Vorige · ${nl(last)} ${u}`, g: last });
   if (!presets.some((p) => Math.round(p.g) === 100)) presets.push({ label: `100 ${u}`, g: 100 });
+  if (food.packageG && food.packageG <= 1000 && !presets.some((p) => Math.round(p.g) === Math.round(food.packageG!))) {
+    presets.push({ label: `Hele verpakking · ${nl(food.packageG)} ${u}`, g: food.packageG });
+  }
 
   const save = () => {
     if (!valid) return;
@@ -112,6 +115,23 @@ export function ProductScreen({
           {food.brand ? `${food.brand} · ` : ''}
           {food.source === 'off' ? 'Open Food Facts' : 'Eigen product'} · per 100 {u}: {nl(food.per.kcal)} kcal
         </T>
+        {food.note ? (
+          <T size={12} color={C.warn}>
+            {food.note}
+          </T>
+        ) : null}
+        {entryId ? null : (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => nav.push({ name: 'manual', meal, date, base: food })}
+          hitSlop={8}
+          style={{ alignSelf: 'flex-start', paddingVertical: 6 }}
+        >
+          <T size={13} weight="bold" color={C.accent}>
+            Klopt er iets niet? Waarden aanpassen
+          </T>
+        </Pressable>
+        )}
       </View>
 
       <Card style={{ padding: 20, gap: 16 }}>
