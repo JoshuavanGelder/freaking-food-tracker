@@ -216,6 +216,9 @@ export function ProductScreen({
           <MacroTile label="Koolhydraten" value={`${nl(n.k, 1)} g`} color={C.carbs} />
           <MacroTile label="Vet" value={`${nl(n.v, 1)} g`} color={C.fat} />
         </Row>
+        <T size={13} color={C.muted}>
+          Vezels: {n.fiber != null ? `${nl(n.fiber, 1)} g` : 'niet bekend'}
+        </T>
       </Card>
 
       {goal && left != null ? (

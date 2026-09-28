@@ -21,6 +21,8 @@ export type Goals = {
   kcalPerDay: number;
   planId: string;
   custom: MacroSplit;
+  /** Vezeldoel in gram per dag. */
+  fiberGoal: number;
 };
 
 export type Per100 = {
@@ -67,6 +69,7 @@ export const DEFAULT_GOALS: Goals = {
   kcalPerDay: 2000,
   planId: 'eiwit',
   custom: { e: 30, k: 40, v: 30 },
+  fiberGoal: 30,
 };
 
 /** Ruststofwisseling volgens Mifflin-St Jeor. */

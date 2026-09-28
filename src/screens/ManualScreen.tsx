@@ -16,6 +16,7 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
   const [e, setE] = useState('');
   const [k, setK] = useState('');
   const [v, setV] = useState('');
+  const [fiber, setFiber] = useState('');
   const [serving, setServing] = useState('');
   const [unit, setUnit] = useState<Unit>('g');
   const [tried, setTried] = useState(false);
@@ -35,7 +36,7 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
     const food: Food = {
       id: 'eigen:' + (barcode ?? uid()),
       name: name.trim(),
-      per: { kcal: nKcal!, e: nE, k: nK, v: nV },
+      per: { kcal: nKcal!, e: nE, k: nK, v: nV, fiber: parseNumber(fiber) ?? undefined },
       servingG: nServing && nServing > 0 ? nServing : undefined,
       unit,
       source: 'eigen',
@@ -73,7 +74,10 @@ export function ManualScreen({ meal, date, barcode }: { meal: MealId; date: stri
           <Field label="Koolhydraten" value={k} onChangeText={setK} unit="g" style={{ flex: 1 }} />
           <Field label="Vet" value={v} onChangeText={setV} unit="g" style={{ flex: 1 }} />
         </View>
-        <Field label="Gebruikelijke portie (optioneel)" value={serving} onChangeText={setServing} unit={unit} />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Field label="Vezels" value={fiber} onChangeText={setFiber} unit="g" style={{ flex: 1 }} />
+          <Field label="Portie (optioneel)" value={serving} onChangeText={setServing} unit={unit} style={{ flex: 1 }} />
+        </View>
       </Card>
       {tried && !valid ? (
         <T size={13} weight="semibold" color={C.warn}>

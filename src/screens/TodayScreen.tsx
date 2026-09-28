@@ -28,11 +28,21 @@ export function TodayScreen() {
   const favKeys = new Set(state.favMeals.map((f) => itemsKey(f.items)));
 
   const title = day === today ? 'Vandaag' : day === addDays(today, -1) ? 'Gisteren' : formatShort(day);
+  const fiberGoal = state.goals.fiberGoal || 30;
   const macros = [
     { name: 'Eiwit', eaten: totals.e, goal: goal.grams.e, color: C.protein },
-    { name: 'Koolhydraten', eaten: totals.k, goal: goal.grams.k, color: C.carbs },
+    { name: 'Koolh.', eaten: totals.k, goal: goal.grams.k, color: C.carbs },
     { name: 'Vet', eaten: totals.v, goal: goal.grams.v, color: C.fat },
+    { name: 'Vezels', eaten: totals.fiber ?? 0, goal: fiberGoal, color: C.fiber },
   ];
+  const week = Array.from({ length: 7 }, (_, i) => addDays(day, i - 6)).map((d) => {
+    const dayEntries = state.log.filter((e) => e.date === d);
+    const f = dayEntries.reduce((s, e) => s + ((e.food.per.fiber ?? 0) * e.grams) / 100, 0);
+    return { date: d, fiber: f, logged: dayEntries.length > 0 };
+  });
+  const weekLogged = week.filter((w) => w.logged);
+  const weekAvg = weekLogged.length ? weekLogged.reduce((s, w) => s + w.fiber, 0) / weekLogged.length : 0;
+  const missingFiber = entries.filter((e) => e.food.per.fiber == null).length;
 
   return (
     <Screen withTabBar>
@@ -73,7 +83,7 @@ export function TodayScreen() {
             <Stat label="Plan" value={goal.planLabel} />
           </View>
         </Row>
-        <Row style={{ gap: 14, alignItems: 'flex-start' }}>
+        <Row style={{ gap: 12, alignItems: 'flex-start' }}>
           {macros.map((m) => (
             <View key={m.name} style={{ flex: 1, gap: 6 }}>
               <T size={13} weight="semibold">
@@ -159,8 +169,46 @@ export function TodayScreen() {
           );
         })}
       </View>
+
+      <Card>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <H2>Vezels</H2>
+          <T size={13} color={C.muted}>
+            gemiddeld {nl(weekAvg)} g · doel {nl(fiberGoal)} g
+          </T>
+        </Row>
+        <Row style={{ alignItems: 'flex-end', gap: 8, height: 120 }}>
+          {week.map((w) => {
+            const pct = Math.min(1, w.fiber / fiberGoal);
+            const hit = w.fiber >= fiberGoal;
+            return (
+              <View key={w.date} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                <T size={11} weight="semibold" color={w.logged ? C.ink : C.muted}>
+                  {w.logged ? nl(w.fiber) : '–'}
+                </T>
+                <View style={{ width: '100%', height: 80, borderRadius: 6, backgroundColor: C.track, justifyContent: 'flex-end', overflow: 'hidden' }}>
+                  <View style={{ height: `${pct * 100}%`, backgroundColor: hit ? C.accent : C.fiber, borderRadius: 6 }} />
+                </View>
+                <T size={11} weight={w.date === day ? 'bold' : 'regular'} color={w.date === day ? C.ink : C.muted}>
+                  {weekday(w.date)}
+                </T>
+              </View>
+            );
+          })}
+        </Row>
+        {missingFiber > 0 ? (
+          <T size={12} color={C.muted}>
+            Van {missingFiber} {missingFiber === 1 ? 'product' : 'producten'} op deze dag zijn geen vezels bekend; die tellen als 0.
+          </T>
+        ) : null}
+      </Card>
     </Screen>
   );
+}
+
+function weekday(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'][new Date(y, m - 1, d, 12).getDay()];
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

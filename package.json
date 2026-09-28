@@ -13,6 +13,7 @@
     "@expo-google-fonts/bricolage-grotesque": "*",
     "@expo-google-fonts/figtree": "*",
     "@react-native-async-storage/async-storage": "*",
+    "@react-native-community/datetimepicker": "*",
     "expo": "~57.0.0",
     "expo-camera": "*",
     "expo-clipboard": "*",

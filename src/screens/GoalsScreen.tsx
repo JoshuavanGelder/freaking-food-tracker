@@ -18,6 +18,7 @@ export function GoalsScreen() {
   const [paceText, setPaceText] = useState(nl(g.paceKgPerWeek, 2).replace(/,?0+$/, '') || '0');
   const [kcalText, setKcalText] = useState(String(g.kcalPerDay));
   const [custom, setCustom] = useState({ e: String(g.custom.e), k: String(g.custom.k), v: String(g.custom.v) });
+  const [fiberText, setFiberText] = useState(String(g.fiberGoal ?? 30));
 
   if (!p || !goal) return null;
   const r = goal.result;
@@ -36,6 +37,11 @@ export function GoalsScreen() {
     setKcalText(t);
     const n = parseNumber(t);
     if (n != null && n >= 800 && n <= 6000) actions.setGoals({ kcalPerDay: Math.round(n) });
+  };
+  const onFiber = (t: string) => {
+    setFiberText(t);
+    const n = parseNumber(t);
+    if (n != null && n >= 5 && n <= 100) actions.setGoals({ fiberGoal: Math.round(n) });
   };
   const onCustom = (key: 'e' | 'k' | 'v', t: string) => {
     const next = { ...custom, [key]: t };
@@ -153,6 +159,16 @@ export function GoalsScreen() {
           <MacroTile label={`Koolh. · ${nl(goal.split.k)}%`} value={`${goal.grams.k} g`} color={C.carbs} />
           <MacroTile label={`Vet · ${nl(goal.split.v)}%`} value={`${goal.grams.v} g`} color={C.fat} />
         </Row>
+      </Card>
+
+      <Card>
+        <T size={14} weight="semibold" color={C.muted}>
+          Vezels
+        </T>
+        <Field label="Vezeldoel per dag" value={fiberText} onChangeText={onFiber} unit="g" keyboardType="number-pad" invalid={!(parseNumber(fiberText) != null && parseNumber(fiberText)! >= 5 && parseNumber(fiberText)! <= 100)} />
+        <T size={12} color={C.muted}>
+          De Gezondheidsraad adviseert volwassenen 30 à 40 gram vezels per dag.
+        </T>
       </Card>
 
       <Card>

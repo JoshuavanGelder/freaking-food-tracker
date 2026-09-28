@@ -13,6 +13,7 @@ export const C = {
   protein: '#2F5FD0',
   carbs: '#E8A33D',
   fat: '#9B5DE5',
+  fiber: '#8A6D3B',
   white: '#FFFFFF',
 };
 

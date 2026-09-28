@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import {
   addDays,
@@ -10,6 +11,7 @@ import {
   formatDate,
   formatShort,
   nl,
+  parseKey,
   parseNumber,
   trendLine,
   trendSlope,
@@ -17,7 +19,7 @@ import {
 import { useApp } from '../store';
 import { useGoal } from '../useGoal';
 import { C, F } from '../theme';
-import { Button, Card, Empty, Field, H1, IconButton, Row, Screen, T } from '../ui';
+import { Button, Card, Chip, Empty, Field, H1, IconButton, Row, Screen, T } from '../ui';
 
 export function WeightScreen() {
   const { state, actions } = useApp();
@@ -25,6 +27,8 @@ export function WeightScreen() {
   const { width } = useWindowDimensions();
   const [logging, setLogging] = useState(false);
   const [text, setText] = useState('');
+  const [logDate, setLogDate] = useState(() => dateKey(new Date()));
+  const [saved, setSaved] = useState<string | null>(null);
 
   const today = dateKey(new Date());
   const days = useMemo(() => dailyWeights(state.weights), [state.weights]);
@@ -40,11 +44,26 @@ export function WeightScreen() {
 
   const parsed = parseNumber(text);
   const valid = parsed != null && parsed >= 30 && parsed <= 300;
+  const existing = days.find((d) => d.date === logDate);
   const save = () => {
     if (!valid) return;
-    actions.addWeight(today, Math.round(parsed! * 10) / 10);
+    const kg = Math.round(parsed! * 10) / 10;
+    actions.addWeight(logDate, kg);
+    setSaved(`${formatDate(logDate)}: ${nl(kg, 1)} kg opgeslagen`);
     setText('');
-    setLogging(false);
+  };
+  const pickDate = () => {
+    DateTimePickerAndroid.open({
+      value: parseKey(logDate),
+      mode: 'date',
+      maximumDate: new Date(),
+      onChange: (event, date) => {
+        if (event.type === 'set' && date) {
+          setLogDate(dateKey(date));
+          setSaved(null);
+        }
+      },
+    });
   };
 
   const chartW = width - 40 - 32;
@@ -53,15 +72,47 @@ export function WeightScreen() {
     <Screen withTabBar>
       <Row style={{ justifyContent: 'space-between' }}>
         <H1>Gewicht</H1>
-        <Button small icon="plus" label="Loggen" onPress={() => setLogging(!logging)} />
+        <Button
+          small
+          icon={logging ? undefined : 'plus'}
+          variant={logging ? 'outline' : 'primary'}
+          label={logging ? 'Klaar' : 'Loggen'}
+          onPress={() => {
+            setLogging(!logging);
+            setSaved(null);
+            setLogDate(today);
+          }}
+        />
       </Row>
 
       {logging ? (
         <Card>
+          <T size={13} weight="semibold" color={C.muted}>
+            Gemeten op
+          </T>
+          <Row style={{ gap: 8 }}>
+            <Chip label="Vandaag" on={logDate === today} onPress={() => { setLogDate(today); setSaved(null); }} />
+            <Chip label="Gisteren" on={logDate === addDays(today, -1)} onPress={() => { setLogDate(addDays(today, -1)); setSaved(null); }} />
+            <Chip
+              label={logDate < addDays(today, -1) ? formatShort(logDate) : 'Andere dag'}
+              on={logDate < addDays(today, -1)}
+              onPress={pickDate}
+            />
+          </Row>
           <Row style={{ gap: 10, alignItems: 'flex-end' }}>
-            <Field label={`Gewicht vandaag (${formatShort(today)})`} value={text} onChangeText={setText} unit="kg" invalid={text !== '' && !valid} style={{ flex: 1 }} onSubmitEditing={save} />
+            <Field label={`Gewicht op ${formatDate(logDate, false)}`} value={text} onChangeText={setText} unit="kg" invalid={text !== '' && !valid} style={{ flex: 1 }} onSubmitEditing={save} />
             <Button small label="Opslaan" onPress={save} disabled={!valid} style={{ height: 48 }} />
           </Row>
+          {existing ? (
+            <T size={12} color={C.warn}>
+              Op deze dag staat al {nl(existing.kg, 1)} kg; opslaan vervangt die meting.
+            </T>
+          ) : null}
+          {saved ? (
+            <T size={13} weight="semibold" color={C.accent}>
+              {saved}. Kies eventueel een andere dag voor de volgende meting.
+            </T>
+          ) : null}
           <T size={12} color={C.muted}>
             Weeg je het liefst elke ochtend op dezelfde manier. Schommelingen door vocht vallen weg in de trend.
           </T>
