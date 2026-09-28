@@ -15,6 +15,7 @@
     "@expo-google-fonts/figtree": "*",
     "@react-native-async-storage/async-storage": "*",
     "@zxing/library": ">=0.20.0",
+    "barcode-photo": "file:./modules/barcode-photo",
     "expo": "~57.0.0",
     "expo-camera": "*",
     "expo-clipboard": "*",
