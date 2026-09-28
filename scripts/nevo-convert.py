@@ -24,6 +24,10 @@ COLS = {
     'satFat': ['FASAT'],
 }
 
+# Vitamines en mineralen, in dezelfde volgorde als MICRO_KEYS in src/logic/micros.ts.
+MICRO_COLS = ['VITA_RAE', 'RIBF', 'VITB6', 'VITB12', 'FOL', 'VITC', 'VITD', 'VITE',
+              'CA', 'FE', 'MG', 'K', 'ZN', 'ID', 'SE', 'NA']
+
 
 def rows_from(path):
     if path.lower().endswith('.xlsx'):
@@ -88,6 +92,9 @@ def main():
     hi = next(i for i, r in enumerate(rows[:20]) if find(r, COLS['code']) is not None and find(r, COLS['kcal']) is not None)
     header = rows[hi]
     idx = {k: find(header, v) for k, v in COLS.items()}
+    micro_idx = [find(header, [c]) for c in MICRO_COLS]
+    if None in micro_idx:
+        sys.exit(f'Micro-kolommen niet gevonden: {[c for c, i in zip(MICRO_COLS, micro_idx) if i is None]}')
     missing = [k for k, v in idx.items() if v is None and k not in ('syn', 'fiber', 'sugar', 'satFat', 'qty')]
     if missing:
         sys.exit(f'Kolommen niet gevonden: {missing}\nKoppen: {header}')
@@ -104,7 +111,8 @@ def main():
         unit = 'ml' if 'ml' in str(get(r, 'qty')).lower() else 'g'
         syn = str(get(r, 'syn') or '').strip()
         items.append([int(code), name, syn, unit, r1(kcal), r1(e), r1(k), r1(v),
-                      r1(num(get(r, 'fiber'))), r1(num(get(r, 'sugar'))), r1(num(get(r, 'satFat')))])
+                      r1(num(get(r, 'fiber'))), r1(num(get(r, 'sugar'))), r1(num(get(r, 'satFat'))),
+                      [r1(num(r[i])) if i < len(r) else None for i in micro_idx]])
 
     m = re.search(r'(20\d\d)[^0-9]*v?(\d+(?:\.\d+)?)', os.path.basename(path))
     version = sys.argv[2] if len(sys.argv) > 2 else (f'{m.group(1)}/{m.group(2)}' if m else '')

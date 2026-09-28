@@ -5,7 +5,8 @@ import { Food, portionCount, unitOf } from '../logic/off';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
-import { NEVO } from '../data/nevo';
+import { NEVO, withNevoData } from '../data/nevo';
+import { PortionMicros } from './MicrosScreen';
 import { C, F } from '../theme';
 import { BackHeader, Button, Card, Chip, H1, HeartButton, IconButton, MacroTile, Row, Screen, Segmented, T } from '../ui';
 
@@ -14,7 +15,7 @@ function fmtCount(x: number): string {
 }
 
 export function ProductScreen({
-  food,
+  food: routeFood,
   meal,
   date,
   entryId,
@@ -29,6 +30,8 @@ export function ProductScreen({
   const { state, actions } = useApp();
   const nav = useNav();
   const goal = useGoal();
+  // Oudere NEVO-producten (uit recent of favorieten) krijgen de micro's alsnog.
+  const food = useMemo(() => withNevoData(routeFood), [routeFood]);
   const start = initial ?? food.servingG ?? 100;
   const startCount = portionCount(food, start);
   const [mode, setMode] = useState<'portie' | 'gram'>(food.servingG && (initial == null || startCount != null) ? 'portie' : 'gram');
@@ -249,6 +252,8 @@ export function ProductScreen({
           </T>
         ) : null}
       </Card>
+
+      {valid ? <PortionMicros per={n} profile={state.profile} /> : null}
 
       {goal && left != null ? (
         <View style={{ borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: C.accentTint, gap: 4 }}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { nl, parseNumber } from '../logic/calc';
+import { saltOf } from '../logic/micros';
 import type { Food, Unit } from '../logic/off';
 import { MealId, uid, useApp } from '../store';
 import { useNav } from '../nav';
@@ -26,6 +27,9 @@ export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date
   const [k, setK] = useState(start(base?.per.k));
   const [v, setV] = useState(start(base?.per.v));
   const [fiber, setFiber] = useState(start(base?.per.fiber));
+  const [satFat, setSatFat] = useState(start(base?.per.satFat));
+  const [sugar, setSugar] = useState(start(base?.per.sugar));
+  const [salt, setSalt] = useState(start(base ? saltOf(base.per) : undefined, 2));
   const [serving, setServing] = useState(start(base?.servingG, 0));
   const [unit, setUnit] = useState<Unit>(base?.unit ?? 'g');
   const [tried, setTried] = useState(false);
@@ -47,7 +51,18 @@ export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date
       id: base?.source === 'eigen' ? base.id : 'eigen:' + (code ?? uid()),
       name: name.trim(),
       brand: base?.brand,
-      per: { kcal: nKcal!, e: nE, k: nK, v: nV, fiber: parseNumber(fiber) ?? undefined },
+      per: {
+        kcal: nKcal!,
+        e: nE,
+        k: nK,
+        v: nV,
+        fiber: parseNumber(fiber) ?? undefined,
+        satFat: parseNumber(satFat) ?? undefined,
+        sugar: parseNumber(sugar) ?? undefined,
+        salt: parseNumber(salt) ?? undefined,
+        // Vitamines en mineralen van het origineel blijven bewaard (die staan zelden op het etiket).
+        ...(base?.per.micro ? { micro: base.per.micro } : {}),
+      },
       servingG,
       servingLabel: servingG && base?.servingG && Math.round(base.servingG) === Math.round(servingG) ? base.servingLabel : undefined,
       packageG: base?.packageG,
@@ -94,8 +109,16 @@ export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date
           <Field label="Vet" value={v} onChangeText={setV} unit="g" style={{ flex: 1 }} />
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Field label="w.v. verzadigd" value={satFat} onChangeText={setSatFat} unit="g" style={{ flex: 1 }} />
+          <Field label="w.v. suikers" value={sugar} onChangeText={setSugar} unit="g" style={{ flex: 1 }} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
           <Field label="Vezels" value={fiber} onChangeText={setFiber} unit="g" style={{ flex: 1 }} />
+          <Field label="Zout" value={salt} onChangeText={setSalt} unit="g" style={{ flex: 1 }} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
           <Field label="Portie (optioneel)" value={serving} onChangeText={setServing} unit={unit} style={{ flex: 1 }} />
+          <View style={{ flex: 1 }} />
         </View>
       </Card>
       {tried && !valid ? (

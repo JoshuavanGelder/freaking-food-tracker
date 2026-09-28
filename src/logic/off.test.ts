@@ -136,3 +136,25 @@ test('ingetypte codes', () => {
   assert.equal(normalizeBarcode('(01)08719587122211'), '8719587122211');
   assert.equal(normalizeBarcode('0108719587122211'), '8719587122211');
 });
+
+test('vitamines en mineralen uit Open Food Facts (gram) naar mg en µg', () => {
+  const f = toFood({
+    code: '2',
+    product_name: 'Ontbijtgranen',
+    nutriments: {
+      'energy-kcal_100g': 380,
+      'vitamin-c_100g': 0.012,
+      'vitamin-d_100g': 0.0000042,
+      'iron_100g': '0.008',
+      sodium_100g: 0.4,
+      'vitamin-b9_100g': 0.0002,
+    },
+  })!;
+  assert.ok(Math.abs(f.per.micro!.vitC! - 12) < 1e-9);
+  assert.ok(Math.abs(f.per.micro!.vitD! - 4.2) < 1e-9);
+  assert.ok(Math.abs(f.per.micro!.fe! - 8) < 1e-9);
+  assert.ok(Math.abs(f.per.micro!.na! - 400) < 1e-9);
+  assert.ok(Math.abs(f.per.micro!.folate! - 200) < 1e-9);
+  assert.equal(f.per.micro!.ca, undefined);
+  assert.equal(toFood({ code: '3', product_name: 'Y', nutriments: { 'energy-kcal_100g': 1 } })!.per.micro, undefined);
+});

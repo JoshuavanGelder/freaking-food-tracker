@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nevoToFood, norm, searchIn } from './nevo.ts';
+import { NEVO_MICRO_ORDER, nevoToFood, norm, searchIn } from './nevo.ts';
+import { MICRO_KEYS } from './micros.ts';
 import type { NevoItem } from './nevo.ts';
 
 const items: NevoItem[] = [
@@ -58,4 +59,14 @@ test('omzetten naar een product', () => {
   assert.equal(f.unit, 'g');
   assert.deepEqual(f.per, { kcal: 57, e: 8.9, k: 4.0, v: 0.2, sugar: 4.0, satFat: 0.1 });
   assert.equal(nevoToFood(items[7]).unit, 'ml');
+});
+
+test("micro-volgorde gelijk aan micros.ts, en micro's worden overgenomen", () => {
+  assert.deepEqual(NEVO_MICRO_ORDER, MICRO_KEYS);
+  const item: NevoItem = [151, 'Banaan', '', 'g', 92, 1.1, 20, 0.3, 1.9, 15.5, 0.1, [5, 0.03, 0.291, 0, 8.6, 8, null, 0.2, 6, 0.3, 28, 374, 0.25, 2.5, 4, 0]];
+  const f = nevoToFood(item);
+  assert.equal(f.per.micro?.kal, 374);
+  assert.equal(f.per.micro?.vitB6, 0.291);
+  assert.equal(f.per.micro?.na, 0);
+  assert.equal('vitD' in f.per.micro!, false);
 });

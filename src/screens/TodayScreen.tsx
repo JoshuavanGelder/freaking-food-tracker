@@ -8,6 +8,8 @@ import { useGoal } from '../useGoal';
 import { C, F, shadow } from '../theme';
 import { Icon } from '../icons';
 import { Bar, Card, H1, H2, HeartButton, IconButton, Ring, Row, Screen, T } from '../ui';
+import { MICROS, SALT_MAX, microTarget } from '../logic/micros';
+import { summarizeLog } from './MicrosScreen';
 
 export function TodayScreen() {
   const { state, actions } = useApp();
@@ -43,6 +45,9 @@ export function TodayScreen() {
   const weekLogged = week.filter((w) => w.logged);
   const weekAvg = weekLogged.length ? weekLogged.reduce((s, w) => s + w.fiber, 0) / weekLogged.length : 0;
   const missingFiber = entries.filter((e) => e.food.per.fiber == null).length;
+  const micro = summarizeLog(entries, 1);
+  const microList = MICROS.filter((m) => m.key !== 'na');
+  const microHit = microList.filter((m) => micro.micro[m.key].amount >= (microTarget(m.key, state.profile) ?? Infinity)).length;
 
   return (
     <Screen withTabBar>
@@ -202,6 +207,36 @@ export function TodayScreen() {
           </T>
         ) : null}
       </Card>
+
+      <Pressable accessibilityRole="button" accessibilityLabel="Vitamines en mineralen bekijken" onPress={() => nav.push({ name: 'micros', date: day })}>
+        <Card>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <H2>Vitamines en mineralen</H2>
+            <T size={13} weight="bold" color={C.accent}>
+              Bekijken ›
+            </T>
+          </Row>
+          {entries.length ? (
+            <>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T size={14}>Zout</T>
+                <T size={13} color={micro.salt.amount > SALT_MAX ? C.warn : C.muted} weight={micro.salt.amount > SALT_MAX ? 'bold' : 'regular'}>
+                  {nl(micro.salt.amount, 1)} / max. {SALT_MAX} g
+                </T>
+              </Row>
+              <Bar pct={(micro.salt.amount / SALT_MAX) * 100} color={micro.salt.amount > SALT_MAX ? C.warn : C.accent} height={6} />
+              <T size={13} color={C.muted}>
+                {microHit} van de {microList.length} op de norm
+                {micro.anyKnown < 0.9 ? ` · bekend voor ${nl(micro.anyKnown * 100)}% van je kcal` : ''}
+              </T>
+            </>
+          ) : (
+            <T size={13} color={C.muted}>
+              Zout, verzadigd vet, 8 vitamines en 7 mineralen, per dag of gemiddeld per week.
+            </T>
+          )}
+        </Card>
+      </Pressable>
     </Screen>
   );
 }

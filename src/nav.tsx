@@ -11,7 +11,8 @@ export type Route =
   | { name: 'product'; food: Food; meal: MealId; date: string; entryId?: string; grams?: number }
   | { name: 'manual'; meal: MealId; date: string; barcode?: string; base?: Food }
   | { name: 'profile' }
-  | { name: 'import' };
+  | { name: 'import' }
+  | { name: 'micros'; date: string };
 
 export type Nav = {
   tab: Tab;

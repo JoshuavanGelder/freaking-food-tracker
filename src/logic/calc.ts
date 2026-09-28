@@ -1,6 +1,8 @@
 // Alle rekenregels van Freaking Food Tracker op één plek, zonder React,
 // zodat ze los te testen zijn (npm test).
 
+import type { Micros } from './micros';
+
 export type Sex = 'man' | 'vrouw';
 
 export type Profile = {
@@ -34,6 +36,8 @@ export type Per100 = {
   salt?: number;
   satFat?: number;
   sugar?: number;
+  /** Vitamines en mineralen in mg of µg (zie micros.ts). */
+  micro?: Micros;
 };
 
 export type WeightEntry = { date: string; kg: number };
@@ -143,6 +147,11 @@ export function forGrams(per: Per100, grams: number): Per100 {
   if (per.salt != null) out.salt = per.salt * f;
   if (per.satFat != null) out.satFat = per.satFat * f;
   if (per.sugar != null) out.sugar = per.sugar * f;
+  if (per.micro) {
+    const m: Micros = {};
+    for (const [k, v] of Object.entries(per.micro)) if (v != null) m[k as keyof Micros] = v * f;
+    out.micro = m;
+  }
   return out;
 }
 

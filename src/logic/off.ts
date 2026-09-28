@@ -3,6 +3,27 @@
 // daarom zoeken we alleen als je op zoeken drukt, niet tijdens het typen.
 
 import type { Per100 } from './calc';
+import type { MicroKey, Micros } from './micros';
+
+/** Vitamines en mineralen in Open Food Facts (per 100 g in gram) → [sleutel, OFF-namen, eenheid in de app]. */
+const OFF_MICROS: [MicroKey, string[], 'mg' | 'µg'][] = [
+  ['vitA', ['vitamin-a'], 'µg'],
+  ['vitB2', ['vitamin-b2'], 'mg'],
+  ['vitB6', ['vitamin-b6'], 'mg'],
+  ['vitB12', ['vitamin-b12'], 'µg'],
+  ['folate', ['vitamin-b9', 'folates'], 'µg'],
+  ['vitC', ['vitamin-c'], 'mg'],
+  ['vitD', ['vitamin-d'], 'µg'],
+  ['vitE', ['vitamin-e'], 'mg'],
+  ['ca', ['calcium'], 'mg'],
+  ['fe', ['iron'], 'mg'],
+  ['mg', ['magnesium'], 'mg'],
+  ['kal', ['potassium'], 'mg'],
+  ['zn', ['zinc'], 'mg'],
+  ['iod', ['iodine'], 'µg'],
+  ['se', ['selenium'], 'µg'],
+  ['na', ['sodium'], 'mg'],
+];
 
 export type Unit = 'g' | 'ml';
 
@@ -170,7 +191,17 @@ export function toFood(p: any): Food | null {
     const v = num(n[key + suffix]);
     return v == null ? undefined : v * factor;
   };
-  const per = {
+  let micro: Micros | undefined;
+  for (const [key, names, u] of OFF_MICROS) {
+    for (const name of names) {
+      const v = val(name);
+      if (v != null && v >= 0) {
+        (micro ??= {})[key] = v * (u === 'mg' ? 1000 : 1_000_000);
+        break;
+      }
+    }
+  }
+  const per: Per100 = {
     kcal,
     e: val('proteins') ?? 0,
     k: val('carbohydrates') ?? 0,
@@ -179,6 +210,7 @@ export function toFood(p: any): Food | null {
     salt: val('salt'),
     satFat: val('saturated-fat'),
     sugar: val('sugars'),
+    ...(micro ? { micro } : {}),
   };
   // Controle: kcal kan nooit veel lager zijn dan wat eiwit, koolhydraten en vet samen leveren.
   let note: string | undefined;

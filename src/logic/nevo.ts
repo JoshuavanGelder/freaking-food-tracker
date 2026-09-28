@@ -4,9 +4,22 @@
 // Bron: NEVO-online, RIVM, Bilthoven. De waarden worden niet aangepast.
 
 import type { Food } from './off';
+import type { MicroKey, Micros } from './micros';
 
-/** [code, naam, synoniemen, eenheid, kcal, eiwit, koolhydraten, vet, vezels, suikers, verzadigd vet] per 100 g of ml. */
-export type NevoItem = [number, string, string, 'g' | 'ml', number, number, number, number, number | null, number | null, number | null];
+/** Volgorde van de micro's in nevo.json; gelijk aan MICRO_KEYS in micros.ts (de test controleert dat). */
+export const NEVO_MICRO_ORDER: MicroKey[] = [
+  'vitA', 'vitB2', 'vitB6', 'vitB12', 'folate', 'vitC', 'vitD', 'vitE',
+  'ca', 'fe', 'mg', 'kal', 'zn', 'iod', 'se', 'na',
+];
+
+/**
+ * [code, naam, synoniemen, eenheid, kcal, eiwit, koolhydraten, vet, vezels, suikers, verzadigd vet, micro's]
+ * per 100 g of ml. Micro's staan in de volgorde van MICRO_KEYS (mg of µg), `null` = onbekend.
+ */
+export type NevoItem = [
+  number, string, string, 'g' | 'ml', number, number, number, number,
+  number | null, number | null, number | null, (number | null)[]?,
+];
 
 export type NevoData = { version: string; source: string; items: NevoItem[] };
 
@@ -76,7 +89,14 @@ export function searchIn(items: NevoItem[], query: string, limit = 25): NevoItem
 }
 
 export function nevoToFood(item: NevoItem): Food {
-  const [code, name, , unit, kcal, e, k, v, fiber, sugar, satFat] = item;
+  const [code, name, , unit, kcal, e, k, v, fiber, sugar, satFat, mic] = item;
+  let micro: Micros | undefined;
+  if (mic) {
+    micro = {};
+    NEVO_MICRO_ORDER.forEach((key, i) => {
+      if (mic[i] != null) micro![key] = mic[i]!;
+    });
+  }
   return {
     id: 'nevo:' + code,
     name,
@@ -88,6 +108,7 @@ export function nevoToFood(item: NevoItem): Food {
       ...(fiber != null ? { fiber } : {}),
       ...(sugar != null ? { sugar } : {}),
       ...(satFat != null ? { satFat } : {}),
+      ...(micro ? { micro } : {}),
     },
     unit,
     source: 'nevo',

@@ -20,6 +20,7 @@ import { GoalsScreen } from './src/screens/GoalsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ImportScreen } from './src/screens/ImportScreen';
+import { MicrosScreen } from './src/screens/MicrosScreen';
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -128,6 +129,9 @@ function Root() {
         break;
       case 'import':
         screen = <ImportScreen key={stack.length} />;
+        break;
+      case 'micros':
+        screen = <MicrosScreen key={stack.length} date={route.date} />;
         break;
     }
   }
