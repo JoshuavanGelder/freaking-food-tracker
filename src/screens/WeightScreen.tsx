@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import {
   addDays,
@@ -11,7 +10,6 @@ import {
   formatDate,
   formatShort,
   nl,
-  parseKey,
   parseNumber,
   trendLine,
   trendSlope,
@@ -49,21 +47,17 @@ export function WeightScreen() {
     if (!valid) return;
     const kg = Math.round(parsed! * 10) / 10;
     actions.addWeight(logDate, kg);
-    setSaved(`${formatDate(logDate)}: ${nl(kg, 1)} kg opgeslagen`);
+    setSaved(`${formatDate(logDate, false)}: ${nl(kg, 1)} kg opgeslagen`);
     setText('');
+    // Door naar de dag ervoor, zo vul je snel een reeks uit het verleden in.
+    if (logDate < today) setLogDate(addDays(logDate, -1));
   };
-  const pickDate = () => {
-    DateTimePickerAndroid.open({
-      value: parseKey(logDate),
-      mode: 'date',
-      maximumDate: new Date(),
-      onChange: (event, date) => {
-        if (event.type === 'set' && date) {
-          setLogDate(dateKey(date));
-          setSaved(null);
-        }
-      },
-    });
+  const moveDate = (n: number) => {
+    const next = addDays(logDate, n);
+    if (next <= today) {
+      setLogDate(next);
+      setSaved(null);
+    }
   };
 
   const chartW = width - 40 - 32;
@@ -90,14 +84,22 @@ export function WeightScreen() {
           <T size={13} weight="semibold" color={C.muted}>
             Gemeten op
           </T>
-          <Row style={{ gap: 8 }}>
-            <Chip label="Vandaag" on={logDate === today} onPress={() => { setLogDate(today); setSaved(null); }} />
-            <Chip label="Gisteren" on={logDate === addDays(today, -1)} onPress={() => { setLogDate(addDays(today, -1)); setSaved(null); }} />
-            <Chip
-              label={logDate < addDays(today, -1) ? formatShort(logDate) : 'Andere dag'}
-              on={logDate < addDays(today, -1)}
-              onPress={pickDate}
+          <Row style={{ justifyContent: 'space-between', backgroundColor: C.bg, borderRadius: 12 }}>
+            <IconButton icon="back" label="Dag eerder" onPress={() => moveDate(-1)} color={C.ink} />
+            <T size={16} weight="bold">
+              {logDate === today ? 'Vandaag' : logDate === addDays(today, -1) ? 'Gisteren' : formatDate(logDate, false)}
+            </T>
+            <IconButton
+              icon="forward"
+              label="Dag later"
+              onPress={() => moveDate(1)}
+              color={logDate < today ? C.ink : C.line}
             />
+          </Row>
+          <Row style={{ gap: 8 }}>
+            <Chip label="Vandaag" on={logDate === today} onPress={() => moveDate(daysBetween(logDate, today))} />
+            <Chip label="−1 week" on={false} onPress={() => moveDate(-7)} />
+            <Chip label="−1 maand" on={false} onPress={() => moveDate(-30)} />
           </Row>
           <Row style={{ gap: 10, alignItems: 'flex-end' }}>
             <Field label={`Gewicht op ${formatDate(logDate, false)}`} value={text} onChangeText={setText} unit="kg" invalid={text !== '' && !valid} style={{ flex: 1 }} onSubmitEditing={save} />
@@ -110,7 +112,7 @@ export function WeightScreen() {
           ) : null}
           {saved ? (
             <T size={13} weight="semibold" color={C.accent}>
-              {saved}. Kies eventueel een andere dag voor de volgende meting.
+              {saved}. {logDate < today ? 'Je staat nu op de dag ervoor.' : ''}
             </T>
           ) : null}
           <T size={12} color={C.muted}>
