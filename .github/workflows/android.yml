@@ -36,13 +36,14 @@ jobs:
       - name: Controle eigen native module (autolinking)
         continue-on-error: true
         run: |
-          npx expo-modules-autolinking search > modules.json 2>&1 || true
-          if grep -q barcode-photo modules.json; then
-            echo "::notice title=autolink::barcode-photo wordt gevonden door autolinking"
-          else
-            echo "::warning title=autolink::barcode-photo NIET gevonden door autolinking"
-            head -c 600 modules.json | tr '\n' ' ' | sed 's/^/::warning title=autolink::/'; echo
-          fi
+          note() { echo "::warning title=autolink::$1"; }
+          note "node_modules/barcode-photo: $(ls -la node_modules/barcode-photo 2>&1 | head -c 200)"
+          note "modules-map: $(ls modules/barcode-photo 2>&1 | tr '\n' ' ')"
+          note "autolinking-versie: $(node -p "require('expo-modules-autolinking/package.json').version" 2>&1)"
+          npx expo-modules-autolinking resolve --platform android --json > resolve.json 2> resolve.err || true
+          note "resolve fouten: $(head -c 300 resolve.err | tr '\n' ' ')"
+          note "resolve modules: $(node -e "const r=require('./resolve.json'); console.log((r.modules||[]).map(m=>m.packageName).join(','))" 2>&1 | head -c 900)"
+          if grep -q barcode resolve.json; then note "RESULTAAT: barcode-photo WEL gevonden"; else note "RESULTAAT: barcode-photo NIET gevonden"; fi
 
       - name: Fotoscanner-test (waarschuwt alleen)
         continue-on-error: true
