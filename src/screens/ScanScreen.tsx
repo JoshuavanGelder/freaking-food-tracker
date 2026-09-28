@@ -1,6 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as IMns from 'expo-image-manipulator';
+import { decodeJpegBase64 } from '../logic/photoscan';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nl } from '../logic/calc';
 import { Food, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../logic/off';
@@ -8,6 +10,21 @@ import { MealId, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, shadow } from '../theme';
 import { BackHeader, Button, Empty, Field, IconButton, Row, Screen, T } from '../ui';
+
+const IM: any = IMns;
+
+/** Foto verkleinen tot max. 1600 px breed en als base64-JPEG teruggeven. */
+async function shrinkToBase64(uri: string): Promise<string | null> {
+  if (IM.ImageManipulator?.manipulate) {
+    const ctx = IM.ImageManipulator.manipulate(uri);
+    ctx.resize({ width: 1600 });
+    const img = await ctx.renderAsync();
+    const saved = await img.saveAsync({ format: IM.SaveFormat.JPEG, base64: true, compress: 0.9 });
+    return saved.base64 ?? null;
+  }
+  const r = await IM.manipulateAsync(uri, [{ resize: { width: 1600 } }], { format: IM.SaveFormat.JPEG, base64: true, compress: 0.9 });
+  return r.base64 ?? null;
+}
 
 type Hit =
   | { code: string; kind: 'loading' }
@@ -29,6 +46,39 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   const cache = useRef<Record<string, Hit>>({});
 
   const [typing, setTyping] = useState(false);
+  const camRef = useRef<any>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
+  const [showPhoto, setShowPhoto] = useState(false);
+
+  // Na een paar seconden zonder resultaat bieden we de fotoscanner aan (leest ook GS1 DataBar).
+  useEffect(() => {
+    if (hit) return;
+    const t = setTimeout(() => setShowPhoto(true), 2500);
+    return () => clearTimeout(t);
+  }, [hit]);
+
+  const photoScan = async () => {
+    if (!camRef.current || photoBusy) return;
+    setPhotoBusy(true);
+    setPhotoMsg(null);
+    try {
+      const pic = await camRef.current.takePictureAsync({ quality: 0.7, shutterSound: false, skipProcessing: true });
+      const b64 = pic?.uri ? await shrinkToBase64(pic.uri) : null;
+      await new Promise((r) => setTimeout(r, 30));
+      const text = b64 ? decodeJpegBase64(b64) : null;
+      if (text && normalizeBarcode(text)) {
+        lastCode.current = null;
+        await onScan({ data: text });
+      } else {
+        setPhotoMsg('Geen barcode gevonden op de foto. Houd de telefoon stil en iets dichterbij, of typ de code in.');
+      }
+    } catch (e: any) {
+      setPhotoMsg('De foto lezen lukte niet. Probeer het nog eens of typ de code in.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
   const [typed, setTyped] = useState('');
   const typedCode = normalizeBarcode(typed.replace(/\s/g, ''));
 
@@ -114,6 +164,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <CameraView
+        ref={camRef}
         style={StyleSheet.absoluteFill}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'datamatrix', 'qr'] }}
@@ -151,7 +202,23 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
                 Richt de camera op de barcode
               </T>
             </View>
-            <Button small variant="outline" label="Lukt het niet? Code intypen" onPress={() => setTyping(true)} />
+            {photoMsg ? (
+              <View style={{ backgroundColor: '#000000AA', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }}>
+                <T size={13} color={C.white} style={{ textAlign: 'center' }}>
+                  {photoMsg}
+                </T>
+              </View>
+            ) : null}
+            {showPhoto ? (
+              <Button
+                small
+                icon={photoBusy ? undefined : 'barcode'}
+                label={photoBusy ? 'Foto lezen…' : 'Wordt hij niet herkend? Foto-scan'}
+                onPress={photoScan}
+                disabled={photoBusy}
+              />
+            ) : null}
+            <Button small variant="outline" label="Code intypen" onPress={() => setTyping(true)} />
           </View>
         ) : (
           <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 16, gap: 12, ...shadow }}>

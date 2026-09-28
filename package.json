@@ -7,17 +7,21 @@
     "start": "expo start",
     "android": "expo run:android",
     "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts src/logic/importer.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:scan": "node --experimental-strip-types --test src/logic/photoscan.test.ts"
   },
   "dependencies": {
     "@expo-google-fonts/bricolage-grotesque": "*",
     "@expo-google-fonts/figtree": "*",
     "@react-native-async-storage/async-storage": "*",
+    "@zxing/library": ">=0.20.0",
     "expo": "~57.0.0",
     "expo-camera": "*",
     "expo-clipboard": "*",
     "expo-font": "*",
+    "expo-image-manipulator": "*",
     "expo-status-bar": "*",
+    "jpeg-js": ">=0.4.0",
     "react": "19.2.3",
     "react-native": "~0.86.0",
     "react-native-safe-area-context": "*",
@@ -25,6 +29,8 @@
   },
   "devDependencies": {
     "@types/react": "*",
+    "bwip-js": ">=4.0.0",
+    "pngjs": ">=6.0.0",
     "typescript": "*"
   }
 }

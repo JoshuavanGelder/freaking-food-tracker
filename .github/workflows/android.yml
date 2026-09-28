@@ -39,6 +39,10 @@ jobs:
       - name: Rekentests
         run: npm test
 
+      - name: Fotoscanner-test (waarschuwt alleen)
+        continue-on-error: true
+        run: npm run test:scan
+
       - name: Typecheck (waarschuwt alleen)
         continue-on-error: true
         run: npx tsc --noEmit
