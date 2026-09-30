@@ -93,6 +93,7 @@ type Actions = {
   removeWeight: (date: string) => void;
   toggleFavMeal: (name: string, items: FavMealItem[]) => void;
   removeFavMeal: (id: string) => void;
+  renameFavMeal: (id: string, name: string) => void;
   addFavMealTo: (fav: FavMeal, date: string, meal: MealId) => void;
   importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
 };
@@ -179,6 +180,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return { ...s, favMeals: [{ id: uid(), name, items }, ...s.favMeals] };
         }),
       removeFavMeal: (id) => setState((s) => ({ ...s, favMeals: s.favMeals.filter((f) => f.id !== id) })),
+      renameFavMeal: (id, name) =>
+        setState((s) => {
+          const clean = name.trim().slice(0, 60);
+          if (!clean) return s;
+          return { ...s, favMeals: s.favMeals.map((f) => (f.id === id ? { ...f, name: clean } : f)) };
+        }),
       addFavMealTo: (fav, date, meal) =>
         setState((s) => {
           let next = s;

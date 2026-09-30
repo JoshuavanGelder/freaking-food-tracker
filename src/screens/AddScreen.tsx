@@ -21,6 +21,17 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [moreNevo, setMoreNevo] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<string | null>(null);
+  const [mealName, setMealName] = useState('');
+
+  const startRename = (id: string, name: string) => {
+    setEditingMeal(id);
+    setMealName(name);
+  };
+  const saveRename = () => {
+    if (editingMeal && mealName.trim()) actions.renameFavMeal(editingMeal, mealName);
+    setEditingMeal(null);
+  };
 
   // Basisproducten uit NEVO zoeken we direct tijdens het typen (staat in de app, dus ook offline).
   const searching = query.trim().length >= 2;
@@ -188,6 +199,35 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                   </T>
                   {state.favMeals.map((m) => {
                     const kcal = m.items.reduce((s, i) => s + (i.food.per.kcal * i.grams) / 100, 0);
+                    if (editingMeal === m.id) {
+                      return (
+                        <Row key={m.id} style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow }}>
+                          <TextInput
+                            accessibilityLabel="Naam van de maaltijd"
+                            value={mealName}
+                            onChangeText={setMealName}
+                            onSubmitEditing={saveRename}
+                            returnKeyType="done"
+                            autoFocus
+                            selectTextOnFocus
+                            maxLength={60}
+                            style={{
+                              flex: 1,
+                              height: 44,
+                              borderWidth: 1,
+                              borderColor: C.accent,
+                              borderRadius: 12,
+                              paddingHorizontal: 12,
+                              fontFamily: F.regular,
+                              fontSize: 15,
+                              color: C.ink,
+                            }}
+                          />
+                          <IconButton icon="close" label="Naam wijzigen annuleren" onPress={() => setEditingMeal(null)} iconSize={18} />
+                          <Button small label="Opslaan" onPress={saveRename} style={{ borderRadius: 999, paddingHorizontal: 14 }} />
+                        </Row>
+                      );
+                    }
                     return (
                       <Row key={m.id} style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow }}>
                         <View style={{ flex: 1, gap: 2 }}>
@@ -198,6 +238,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                             {m.items.map((i) => i.food.name).join(', ')} · {nl(kcal)} kcal
                           </T>
                         </View>
+                        <IconButton icon="edit" label={`${m.name} hernoemen`} onPress={() => startRename(m.id, m.name)} iconSize={18} />
                         <IconButton icon="close" label={`${m.name} uit favorieten halen`} onPress={() => actions.removeFavMeal(m.id)} iconSize={18} />
                         <Button
                           small
