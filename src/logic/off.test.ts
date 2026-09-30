@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toFood, parseAmount, portionCount, amountText, normalizeBarcode, isStoreLabel } from './off.ts';
+import { toFood, parseAmount, portionCount, amountText, normalizeBarcode, isStoreLabel, hasValidCheckDigit } from './off.ts';
 
 test('Open Food Facts product omzetten', () => {
   const f = toFood({
@@ -157,4 +157,15 @@ test('vitamines en mineralen uit Open Food Facts (gram) naar mg en µg', () => {
   assert.ok(Math.abs(f.per.micro!.folate! - 200) < 1e-9);
   assert.equal(f.per.micro!.ca, undefined);
   assert.equal(toFood({ code: '3', product_name: 'Y', nutriments: { 'energy-kcal_100g': 1 } })!.per.micro, undefined);
+});
+
+test('controlecijfer: ruis uit de live scanner wordt herkend', () => {
+  assert.equal(hasValidCheckDigit('8710522979495'), true);
+  assert.equal(hasValidCheckDigit('8719587122211'), true);
+  assert.equal(hasValidCheckDigit('8710522979496'), false);
+  assert.equal(hasValidCheckDigit('87105229'), false);
+  assert.equal(hasValidCheckDigit('96385074'), true); // EAN-8
+  assert.equal(hasValidCheckDigit('036000291452'), true); // UPC-A
+  assert.equal(hasValidCheckDigit('036000291453'), false);
+  assert.equal(hasValidCheckDigit('12345678901234'), true); // andere lengtes: niet controleren
 });

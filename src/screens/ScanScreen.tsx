@@ -6,7 +6,7 @@ import { decodeJpegBase64 } from '../logic/photoscan';
 import { readBarcodeFromFile } from '../../modules/barcode-photo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nl } from '../logic/calc';
-import { Food, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../logic/off';
+import { Food, hasValidCheckDigit, isStoreLabel, lookupBarcode, normalizeBarcode, unitOf } from '../logic/off';
 import { MealId, useApp } from '../store';
 import { useNav } from '../nav';
 import { C, shadow } from '../theme';
@@ -33,8 +33,9 @@ type Hit =
   | { code: string; kind: 'missing'; text: string };
 
 /**
- * De camera blijft scannen. Een gevonden product verschijnt onderin;
- * pas als je op "Verder" tikt ga je door. Een andere barcode vervangt het resultaat.
+ * Een gevonden product blijft onderin staan (de camera stopt met scannen) tot je op "Opnieuw" of "Verder" tikt.
+ * Bij een onbekende barcode blijft de camera scannen, maar alleen een barcode die twee keer achter elkaar
+ * met kloppend controlecijfer wordt gelezen telt, en een net getoond bericht blijft even staan. Zo flikkert het niet.
  */
 export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   const { state } = useApp();
@@ -42,6 +43,9 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [hit, setHit] = useState<Hit | null>(null);
+  const hitRef = useRef<Hit | null>(null);
+  const shownAt = useRef(0);
+  const pending = useRef<{ code: string; n: number; t: number } | null>(null);
   const lastCode = useRef<string | null>(null);
   const busy = useRef(false);
   const cache = useRef<Record<string, Hit>>({});
@@ -95,13 +99,36 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     onScan({ data: typedCode });
   };
 
+  const show = (h: Hit | null) => {
+    hitRef.current = h;
+    shownAt.current = Date.now();
+    setHit(h);
+  };
+
+  /** Live camera: ruis en losse misreads negeren voordat er iets op het scherm verandert. */
+  const onCameraScan = ({ data }: { data: string }) => {
+    const code = normalizeBarcode(data);
+    if (!code || code === lastCode.current || !hasValidCheckDigit(code)) return;
+    const cur = hitRef.current;
+    if (cur?.kind === 'found' || cur?.kind === 'loading') return;
+    // Een net getoond "onbekend"-bericht blijft minstens 1,5 seconde staan.
+    if (cur && Date.now() - shownAt.current < 1500) return;
+    const now = Date.now();
+    const p = pending.current;
+    if (p && p.code === code && now - p.t < 1500) p.n += 1;
+    else pending.current = { code, n: 1, t: now };
+    if (pending.current!.n < 2) return;
+    pending.current = null;
+    onScan({ data: code });
+  };
+
   const onScan = async ({ data }: { data: string }) => {
     const code = normalizeBarcode(data);
     if (!code || code === lastCode.current || busy.current) return;
     lastCode.current = code;
 
     if (isStoreLabel(code)) {
-      setHit({
+      show({
         code,
         kind: 'missing',
         text: 'Dit is een weegetiket van de winkel; die codes staan in geen enkele database. Scan de gewone barcode op de verpakking als die er is, of zoek op naam.',
@@ -113,15 +140,16 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     const known = state.foods['eigen:' + code] ?? state.foods['off:' + code];
     // Gescande producten uit een oudere app-versie (zonder barcode-veld) halen we opnieuw op.
     if (known && (known.source === 'eigen' || known.barcode)) {
-      setHit({ code, kind: 'found', food: known });
+      show({ code, kind: 'found', food: known });
       return;
     }
     if (cache.current[code]) {
-      setHit(cache.current[code]);
+      show(cache.current[code]);
       return;
     }
     busy.current = true;
-    setHit({ code, kind: 'loading' });
+    // Staat er al een bericht, dan blijft dat tot het resultaat er is (geen tussenflits).
+    if (!hitRef.current) show({ code, kind: 'loading' });
     let result: Hit;
     try {
       const r = await lookupBarcode(code);
@@ -143,12 +171,13 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
     } finally {
       busy.current = false;
     }
-    setHit(result);
+    show(result);
   };
 
   const clear = () => {
-    setHit(null);
+    show(null);
     lastCode.current = null;
+    pending.current = null;
   };
 
   if (!permission) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
@@ -165,6 +194,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
   }
 
   const found = hit?.kind === 'found';
+  const scanning = !found && !typing;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -173,7 +203,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
         style={StyleSheet.absoluteFill}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'datamatrix', 'qr'] }}
-        onBarcodeScanned={onScan}
+        onBarcodeScanned={scanning ? onCameraScan : undefined}
       />
       <View style={{ position: 'absolute', top: insets.top + 8, left: 8 }}>
         <IconButton icon="back" label="Terug" onPress={nav.back} color={C.white} bg="#00000066" />
@@ -287,7 +317,7 @@ export function ScanScreen({ meal, date }: { meal: MealId; date: string }) {
                 <Button small variant="ghost" label="Opnieuw scannen" onPress={clear} />
               </>
             )}
-            {hit.kind !== 'loading' ? (
+            {hit.kind === 'missing' ? (
               <T size={12} color={C.muted}>
                 De camera blijft scannen. Richt op een andere barcode om te wisselen.
               </T>

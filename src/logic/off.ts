@@ -74,6 +74,21 @@ export function isStoreLabel(code: string): boolean {
   return code.length === 13 && code.startsWith('2');
 }
 
+/**
+ * Klopt het controlecijfer van deze GTIN (EAN-8/UPC-A/EAN-13)? Een half of verkeerd gelezen barcode
+ * faalt hier bijna altijd op; de live scanner gebruikt dit om ruis te negeren. Andere lengtes laten we door.
+ */
+export function hasValidCheckDigit(code: string): boolean {
+  if (!/^\d+$/.test(code)) return false;
+  if (code.length !== 8 && code.length !== 12 && code.length !== 13) return true;
+  let sum = 0;
+  for (let i = 0; i < code.length - 1; i++) {
+    const d = code.charCodeAt(code.length - 2 - i) - 48; // van rechts, zonder controlecijfer
+    sum += i % 2 === 0 ? d * 3 : d;
+  }
+  return (10 - (sum % 10)) % 10 === code.charCodeAt(code.length - 1) - 48;
+}
+
 export function unitOf(f: Food): Unit {
   return f.unit ?? 'g';
 }
