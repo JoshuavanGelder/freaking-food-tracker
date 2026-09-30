@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Keyboard,
   Pressable,
   ScrollView,
   StyleProp,
@@ -61,19 +62,32 @@ export function Screen({
   gap?: number;
 }) {
   const insets = useSafeAreaInsets();
+  // Het venster krimpt niet mee met het toetsenbord (edge-to-edge): laat het scrollgebied zelf boven het
+  // toetsenbord eindigen, zodat het invoerveld in beeld scrolt en niets eronder verdwijnt.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e: { endCoordinates: { height: number } }) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: C.bg }}
-      contentContainerStyle={{
-        paddingTop: insets.top + 16,
-        paddingHorizontal: 20,
-        paddingBottom: (withTabBar ? 100 : 32) + insets.bottom,
-        gap,
-      }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingBottom: kb }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: C.bg }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 16,
+          paddingHorizontal: 20,
+          paddingBottom: kb ? 24 : (withTabBar ? 100 : 32) + insets.bottom,
+          gap,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 

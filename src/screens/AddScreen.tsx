@@ -199,9 +199,10 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                   </T>
                   {state.favMeals.map((m) => {
                     const kcal = m.items.reduce((s, i) => s + (i.food.per.kcal * i.grams) / 100, 0);
+                    const card = { backgroundColor: C.card, borderRadius: 14, paddingVertical: 10, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow };
                     if (editingMeal === m.id) {
                       return (
-                        <Row key={m.id} style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow }}>
+                        <View key={m.id} style={card}>
                           <TextInput
                             accessibilityLabel="Naam van de maaltijd"
                             value={mealName}
@@ -212,8 +213,8 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                             selectTextOnFocus
                             maxLength={60}
                             style={{
-                              flex: 1,
                               height: 44,
+                              marginRight: 8,
                               borderWidth: 1,
                               borderColor: C.accent,
                               borderRadius: 12,
@@ -223,34 +224,39 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                               color: C.ink,
                             }}
                           />
-                          <IconButton icon="close" label="Naam wijzigen annuleren" onPress={() => setEditingMeal(null)} iconSize={18} />
-                          <Button small label="Opslaan" onPress={saveRename} style={{ borderRadius: 999, paddingHorizontal: 14 }} />
-                        </Row>
+                          <Row style={{ justifyContent: 'flex-end', gap: 6 }}>
+                            <Button small variant="ghost" label="Annuleren" onPress={() => setEditingMeal(null)} />
+                            <Button small label="Opslaan" onPress={saveRename} style={{ borderRadius: 999, paddingHorizontal: 14 }} />
+                          </Row>
+                        </View>
                       );
                     }
                     return (
-                      <Row key={m.id} style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow }}>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <T size={15} weight="semibold" numberOfLines={1}>
+                      <View key={m.id} style={card}>
+                        <View style={{ gap: 2, paddingRight: 8 }}>
+                          <T size={15} weight="semibold" numberOfLines={2}>
                             {m.name}
                           </T>
-                          <T size={13} color={C.muted} numberOfLines={1}>
+                          <T size={13} color={C.muted} numberOfLines={2}>
                             {m.items.map((i) => i.food.name).join(', ')} · {nl(kcal)} kcal
                           </T>
                         </View>
-                        <IconButton icon="edit" label={`${m.name} hernoemen`} onPress={() => startRename(m.id, m.name)} iconSize={18} />
-                        <IconButton icon="close" label={`${m.name} uit favorieten halen`} onPress={() => actions.removeFavMeal(m.id)} iconSize={18} />
-                        <Button
-                          small
-                          icon="plus"
-                          label="Alles"
-                          onPress={() => {
-                            actions.addFavMealTo(m, date, meal);
-                            nav.home();
-                          }}
-                          style={{ borderRadius: 999, paddingHorizontal: 14 }}
-                        />
-                      </Row>
+                        <Row style={{ gap: 6 }}>
+                          <IconButton icon="edit" label={`${m.name} hernoemen`} onPress={() => startRename(m.id, m.name)} iconSize={18} />
+                          <IconButton icon="close" label={`${m.name} uit favorieten halen`} onPress={() => actions.removeFavMeal(m.id)} iconSize={18} />
+                          <View style={{ flex: 1 }} />
+                          <Button
+                            small
+                            icon="plus"
+                            label="Alles"
+                            onPress={() => {
+                              actions.addFavMealTo(m, date, meal);
+                              nav.home();
+                            }}
+                            style={{ borderRadius: 999, paddingHorizontal: 14 }}
+                          />
+                        </Row>
+                      </View>
                     );
                   })}
                   <T size={13} weight="bold" color={C.muted} style={{ marginTop: 4 }}>
