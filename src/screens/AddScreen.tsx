@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { nl } from '../logic/calc';
 import { Food, amountText, searchFoods, unitOf } from '../logic/off';
 import { nevoToFood, searchIn } from '../logic/nevo';
+import { searchMine } from '../logic/mine';
 import { NEVO } from '../data/nevo';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
@@ -21,21 +22,17 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [moreNevo, setMoreNevo] = useState(false);
-  const [editingMeal, setEditingMeal] = useState<string | null>(null);
-  const [mealName, setMealName] = useState('');
-
-  const startRename = (id: string, name: string) => {
-    setEditingMeal(id);
-    setMealName(name);
-  };
-  const saveRename = () => {
-    if (editingMeal && mealName.trim()) actions.renameFavMeal(editingMeal, mealName);
-    setEditingMeal(null);
-  };
+  const pickMeal = nav.pickFor ? state.favMeals.find((m) => m.id === nav.pickFor) : undefined;
 
   // Basisproducten uit NEVO zoeken we direct tijdens het typen (staat in de app, dus ook offline).
   const searching = query.trim().length >= 2;
   const nevoHits = useMemo(() => (searching ? searchIn(NEVO.items, query, 40).map(nevoToFood) : []), [query, searching]);
+  const shownNevo = useMemo(() => (moreNevo ? nevoHits : nevoHits.slice(0, 8)), [nevoHits, moreNevo]);
+  // Daarna je eigen producten die passen: recent, favorieten en zelfgemaakt (zonder dubbelen van hierboven).
+  const mineHits = useMemo(
+    () => (searching ? searchMine(state, query, new Set(shownNevo.map((f) => f.id))) : []),
+    [state.foods, state.recent, state.favorites, query, searching, shownNevo],
+  );
 
   const onType = (t: string) => {
     setQuery(t);
@@ -69,7 +66,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const byIds = (ids: string[]) => ids.map((id) => state.foods[id]).filter(Boolean) as Food[];
   const own = Object.values(state.foods).filter((f) => f.source === 'eigen');
 
-  const list = (foods: Food[]) => (
+  const list = (foods: Food[], editable = false) => (
     <View style={{ gap: 8 }}>
       {foods.map((f) => (
         <FoodRow
@@ -79,14 +76,20 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
           fav={state.favorites.includes(f.id)}
           onFav={() => actions.toggleFavorite(f)}
           onOpen={() => open(f)}
+          onEdit={editable ? () => nav.push({ name: 'manual', meal, date, base: f, editOnly: true }) : undefined}
         />
       ))}
     </View>
   );
 
+  const newMeal = () => {
+    const id = actions.createFavMeal('Nieuwe maaltijd');
+    nav.push({ name: 'favmeal', id });
+  };
+
   return (
     <Screen>
-      <BackHeader title={`Toevoegen aan ${mealLabel(meal)}`} onBack={nav.back} />
+      <BackHeader title={pickMeal ? `Toevoegen aan ${pickMeal.name}` : `Toevoegen aan ${mealLabel(meal)}`} onBack={nav.back} />
 
       <View>
         <View style={{ position: 'absolute', left: 16, top: 14, zIndex: 1 }}>
@@ -126,7 +129,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
         <View style={{ gap: 8 }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <T size={13} weight="bold" color={C.muted}>
-              {nevoHits.length ? `Basisproducten (NEVO) · ${nevoHits.length}${nevoHits.length === 40 ? '+' : ''}` : 'Zoekresultaten'}
+              {nevoHits.length ? `Basisproducten (NEVO) · ${nevoHits.length}${nevoHits.length === 40 ? '+' : ''}` : mineHits.length ? 'Geen basisproducten gevonden' : 'Zoekresultaten'}
             </T>
             <Pressable onPress={clear} hitSlop={10}>
               <T size={13} weight="bold" color={C.accent}>
@@ -134,9 +137,18 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
               </T>
             </Pressable>
           </Row>
-          {nevoHits.length ? list(moreNevo ? nevoHits : nevoHits.slice(0, 8)) : null}
+          {nevoHits.length ? list(shownNevo) : null}
           {nevoHits.length > 8 && !moreNevo ? (
             <Button small variant="ghost" label={`Meer basisproducten tonen`} onPress={() => setMoreNevo(true)} />
+          ) : null}
+
+          {mineHits.length ? (
+            <>
+              <T size={13} weight="bold" color={C.muted} style={{ marginTop: 4 }}>
+                Jouw producten (recent, favorieten, eigen) · {mineHits.length}
+              </T>
+              {list(mineHits)}
+            </>
           ) : null}
 
           {busy ? (
@@ -151,7 +163,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                 Merkproducten (Open Food Facts) · {results.length}
               </T>
               {results.length ? list(results) : null}
-              {results.length || nevoHits.length ? (
+              {results.length || nevoHits.length || mineHits.length ? (
                 <Button small variant="ghost" label="Staat het er niet bij? Zelf invoeren" onPress={() => nav.push({ name: 'manual', meal, date })} />
               ) : (
                 <Empty title="Niets gevonden" text="Probeer een ander woord, of voer het product zelf in.">
@@ -166,7 +178,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
               icon="search"
               label={`Zoek merken: "${query.trim()}"`}
               onPress={search}
-              style={{ marginTop: nevoHits.length ? 4 : 0 }}
+              style={{ marginTop: nevoHits.length || mineHits.length ? 4 : 0 }}
             />
           )}
         </View>
@@ -192,45 +204,21 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
 
           {tab === 'fav' ? (
             <View style={{ gap: 8 }}>
-              {state.favMeals.length ? (
+              {!pickMeal ? (
                 <>
-                  <T size={13} weight="bold" color={C.muted}>
-                    Maaltijden
-                  </T>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <T size={13} weight="bold" color={C.muted}>
+                      Maaltijden
+                    </T>
+                    <Pressable accessibilityRole="button" onPress={newMeal} hitSlop={10}>
+                      <T size={13} weight="bold" color={C.accent}>
+                        + Nieuwe maaltijd
+                      </T>
+                    </Pressable>
+                  </Row>
                   {state.favMeals.map((m) => {
                     const kcal = m.items.reduce((s, i) => s + (i.food.per.kcal * i.grams) / 100, 0);
                     const card = { backgroundColor: C.card, borderRadius: 14, paddingVertical: 10, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow };
-                    if (editingMeal === m.id) {
-                      return (
-                        <View key={m.id} style={card}>
-                          <TextInput
-                            accessibilityLabel="Naam van de maaltijd"
-                            value={mealName}
-                            onChangeText={setMealName}
-                            onSubmitEditing={saveRename}
-                            returnKeyType="done"
-                            autoFocus
-                            selectTextOnFocus
-                            maxLength={60}
-                            style={{
-                              height: 44,
-                              marginRight: 8,
-                              borderWidth: 1,
-                              borderColor: C.accent,
-                              borderRadius: 12,
-                              paddingHorizontal: 12,
-                              fontFamily: F.regular,
-                              fontSize: 15,
-                              color: C.ink,
-                            }}
-                          />
-                          <Row style={{ justifyContent: 'flex-end', gap: 6 }}>
-                            <Button small variant="ghost" label="Annuleren" onPress={() => setEditingMeal(null)} />
-                            <Button small label="Opslaan" onPress={saveRename} style={{ borderRadius: 999, paddingHorizontal: 14 }} />
-                          </Row>
-                        </View>
-                      );
-                    }
                     return (
                       <View key={m.id} style={card}>
                         <View style={{ gap: 2, paddingRight: 8 }}>
@@ -238,17 +226,18 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                             {m.name}
                           </T>
                           <T size={13} color={C.muted} numberOfLines={2}>
-                            {m.items.map((i) => i.food.name).join(', ')} · {nl(kcal)} kcal
+                            {m.items.length ? `${m.items.map((i) => i.food.name).join(', ')} · ${nl(kcal)} kcal` : 'Nog geen producten'}
                           </T>
                         </View>
                         <Row style={{ gap: 6 }}>
-                          <IconButton icon="edit" label={`${m.name} hernoemen`} onPress={() => startRename(m.id, m.name)} iconSize={18} />
+                          <IconButton icon="edit" label={`${m.name} aanpassen`} onPress={() => nav.push({ name: 'favmeal', id: m.id })} iconSize={18} />
                           <IconButton icon="close" label={`${m.name} uit favorieten halen`} onPress={() => actions.removeFavMeal(m.id)} iconSize={18} />
                           <View style={{ flex: 1 }} />
                           <Button
                             small
                             icon="plus"
                             label="Alles"
+                            disabled={!m.items.length}
                             onPress={() => {
                               actions.addFavMealTo(m, date, meal);
                               nav.home();
@@ -259,17 +248,19 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                       </View>
                     );
                   })}
-                  <T size={13} weight="bold" color={C.muted} style={{ marginTop: 4 }}>
-                    Producten
-                  </T>
+                  {state.favMeals.length ? (
+                    <T size={13} weight="bold" color={C.muted} style={{ marginTop: 4 }}>
+                      Producten
+                    </T>
+                  ) : null}
                 </>
               ) : null}
               {state.favorites.length ? (
-                list(byIds(state.favorites))
+                list(byIds(state.favorites), true)
               ) : (
                 <Empty
                   title="Nog geen favorieten"
-                  text="Tik op het hartje bij een product om het hier te bewaren. Bij Vandaag kun je met het hartje een hele maaltijd opslaan."
+                  text="Zoek een product en tik op het hartje om het hier te bewaren. Bij Vandaag kun je met het hartje een hele maaltijd opslaan, of maak hierboven zelf een maaltijd."
                 />
               )}
             </View>
@@ -298,12 +289,14 @@ function FoodRow({
   fav,
   onFav,
   onOpen,
+  onEdit,
 }: {
   food: Food;
   portion?: number;
   fav: boolean;
   onFav: () => void;
   onOpen: () => void;
+  onEdit?: () => void;
 }) {
   const u = unitOf(food);
   const p = portion ?? food.servingG;
@@ -319,6 +312,7 @@ function FoodRow({
           {sub}
         </T>
       </Pressable>
+      {onEdit ? <IconButton icon="edit" label={`${food.name} aanpassen`} onPress={onEdit} iconSize={18} /> : null}
       <HeartButton on={fav} onPress={onFav} label={fav ? `${food.name} uit favorieten halen` : `${food.name} als favoriet bewaren`} />
       <IconButton icon="plus" label={`${food.name} toevoegen`} onPress={onOpen} color={C.accent} bg={C.accentTint} />
     </Row>

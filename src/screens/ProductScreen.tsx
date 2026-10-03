@@ -48,6 +48,8 @@ export function ProductScreen({
   const g = valid ? parsed! : 0;
   const n = forGrams(food.per, g);
   const fav = state.favorites.includes(food.id);
+  // Bij het samenstellen van een favoriete maaltijd voegen we toe aan die maaltijd in plaats van aan je dag.
+  const pickMeal = !entryId && nav.pickFor ? state.favMeals.find((m) => m.id === nav.pickFor) : undefined;
 
   // Wat er al op deze dag staat, zonder de regel die we nu bewerken.
   const dayTotals = useMemo(
@@ -91,6 +93,11 @@ export function ProductScreen({
     if (mode === 'portie' && sizeOk && Math.round(size!) !== Math.round(food.servingG ?? -1)) {
       f = { ...food, servingG: size!, servingLabel: undefined };
       actions.saveFood(f);
+    }
+    if (pickMeal) {
+      actions.addFavMealItem(pickMeal.id, f, g);
+      nav.popTo('favmeal');
+      return;
     }
     if (entryId) actions.updateEntry(entryId, g);
     else actions.addEntry(date, meal, f, g);
@@ -255,7 +262,7 @@ export function ProductScreen({
 
       {valid ? <PortionMicros per={n} profile={state.profile} /> : null}
 
-      {goal && left != null ? (
+      {goal && left != null && !pickMeal ? (
         <View style={{ borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: C.accentTint, gap: 4 }}>
           <T size={14} weight="bold">
             {left >= 0 ? `Daarna nog ${nl(left)} kcal over` : `Daarna ${nl(-left)} kcal boven je doel`}
@@ -269,7 +276,11 @@ export function ProductScreen({
         </View>
       ) : null}
 
-      <Button label={entryId ? 'Opslaan' : `Toevoegen aan ${mealLabel(meal)}`} onPress={save} disabled={!valid} />
+      <Button
+        label={entryId ? 'Opslaan' : pickMeal ? `Toevoegen aan ${pickMeal.name}` : `Toevoegen aan ${mealLabel(meal)}`}
+        onPress={save}
+        disabled={!valid}
+      />
       {entryId ? <Button variant="danger" label="Verwijderen" onPress={remove} /> : null}
     </Screen>
   );

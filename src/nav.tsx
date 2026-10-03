@@ -9,7 +9,8 @@ export type Route =
   | { name: 'add'; meal: MealId; date: string }
   | { name: 'scan'; meal: MealId; date: string }
   | { name: 'product'; food: Food; meal: MealId; date: string; entryId?: string; grams?: number }
-  | { name: 'manual'; meal: MealId; date: string; barcode?: string; base?: Food }
+  | { name: 'manual'; meal: MealId; date: string; barcode?: string; base?: Food; editOnly?: boolean }
+  | { name: 'favmeal'; id: string }
   | { name: 'profile' }
   | { name: 'import' }
   | { name: 'micros'; date: string };
@@ -22,7 +23,12 @@ export type Nav = {
   push: (r: Route) => void;
   replace: (r: Route) => void;
   back: () => void;
+  /** Terug naar het laatste scherm met deze naam in de stapel. */
+  popTo: (name: Route['name']) => void;
   home: () => void;
+  /** Id van de favoriete maaltijd waar producten aan worden toegevoegd (zoeken/scannen werkt dan als kiezer). */
+  pickFor: string | null;
+  setPickFor: (id: string | null) => void;
 };
 
 export const NavCtx = createContext<Nav | null>(null);

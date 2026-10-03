@@ -5,6 +5,7 @@ import { useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
 import { NEVO } from '../data/nevo';
+import { ExportSection } from './ExportSection';
 import { C } from '../theme';
 import { Button, Card, Chip, Field, H1, MacroTile, Row, Screen, Segmented, T } from '../ui';
 
@@ -181,6 +182,7 @@ export function GoalsScreen() {
           Eten overzetten, bijvoorbeeld uit Foodvisor: plak de importtekst die je van Claude krijgt.
         </T>
         <Button small variant="outline" label="Importeren" onPress={() => nav.push({ name: 'import' })} />
+        <ExportSection />
       </Card>
 
       <T size={11} color={C.muted} style={{ lineHeight: 16, paddingHorizontal: 4 }}>

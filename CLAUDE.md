@@ -33,7 +33,8 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
 
 ## Architectuur
 - `App.tsx`: fonts, AppProvider, eigen route-stack (geen react-navigation), tabs Vandaag/Gewicht/Vrienden/Doelen.
-- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | micros`.
+- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | micros | favmeal`. `nav.pickFor` = id van de
+  favoriete maaltijd waaraan producten worden toegevoegd (zoeken/scannen/product werken dan als kiezer, `nav.popTo('favmeal')`).
 - `src/store.tsx`: state in AsyncStorage (`fft-state-v1`): profile, goals, log (LogEntry {id,date,meal,food,grams};
   het hele `Food` wordt in de entry gekopieerd), weights, foods, favorites, recent, lastPortion, favMeals, imports.
 - `src/logic/calc.ts`: BMR (Mifflin-St Jeor), doel, macroplannen, `Per100` (kcal,e,k,v,fiber,salt,satFat,sugar,micro),
@@ -45,6 +46,9 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   Data opnieuw maken: `python3 scripts/nevo-convert.py NEVO2025_v9.0.csv` (RIVM-zip, niet in de repo).
 - `src/logic/micros.ts`: 8 vitamines + 8 mineralen (MICRO_KEYS), normen Gezondheidsraad 2018 per geslacht/leeftijd,
   zout max 6 g (= natrium × 2,5), verzadigd vet max 10 en%, `summarizeMicros` met dekking en top-bronnen.
+- `src/logic/mine.ts`: zoeken in recent/favorieten/eigen producten (komt in AddScreen na de NEVO-treffers).
+- `src/logic/exporter.ts`: export als JSON (`fft-export` v1) voor "deze week" (afgelopen 7 dagen incl. vandaag) en "alles";
+  delen via expo-file-system + expo-sharing (`src/screens/ExportSection.tsx`, op Doelen → Gegevens).
 - `src/logic/importer.ts`: `fft-import` v1 JSON (Foodvisor-overzet), ids `import:<slug>`, dagtotalen `summary:<datum>`.
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).

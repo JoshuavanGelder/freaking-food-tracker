@@ -88,12 +88,18 @@ type Actions = {
   updateEntry: (id: string, grams: number) => void;
   removeEntry: (id: string) => void;
   toggleFavorite: (food: Food) => void;
-  saveFood: (food: Food) => void;
+  /** Bewaart een product. `replacesId`: het product dat hiermee wordt vervangen (de favoriet verhuist mee). */
+  saveFood: (food: Food, replacesId?: string) => void;
   addWeight: (date: string, kg: number) => void;
   removeWeight: (date: string) => void;
   toggleFavMeal: (name: string, items: FavMealItem[]) => void;
   removeFavMeal: (id: string) => void;
   renameFavMeal: (id: string, name: string) => void;
+  /** Nieuwe, nog lege favoriete maaltijd; geeft het id terug. */
+  createFavMeal: (name: string) => string;
+  addFavMealItem: (id: string, food: Food, grams: number) => void;
+  updateFavMealItem: (id: string, index: number, grams: number) => void;
+  removeFavMealItem: (id: string, index: number) => void;
   addFavMealTo: (fav: FavMeal, date: string, meal: MealId) => void;
   importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
 };
@@ -168,7 +174,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             favorites: on ? s.favorites.filter((id) => id !== food.id) : [food.id, ...s.favorites],
           };
         }),
-      saveFood: (food) => setState((s) => ({ ...s, foods: { ...s.foods, [food.id]: food } })),
+      saveFood: (food, replacesId) =>
+        setState((s) => {
+          const next = { ...s, foods: { ...s.foods, [food.id]: food } };
+          if (replacesId && replacesId !== food.id && s.favorites.includes(replacesId)) {
+            // Een aangepaste favoriet blijft op dezelfde plek in de lijst staan.
+            const favs = s.favorites.filter((id) => id !== food.id);
+            next.favorites = favs.map((id) => (id === replacesId ? food.id : id));
+          }
+          return next;
+        }),
       addWeight: (date, kg) =>
         setState((s) => ({ ...s, weights: [...s.weights.filter((w) => w.date !== date), { date, kg }] })),
       removeWeight: (date) => setState((s) => ({ ...s, weights: s.weights.filter((w) => w.date !== date) })),
@@ -186,6 +201,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (!clean) return s;
           return { ...s, favMeals: s.favMeals.map((f) => (f.id === id ? { ...f, name: clean } : f)) };
         }),
+      createFavMeal: (name) => {
+        const id = uid();
+        const clean = name.trim().slice(0, 60) || 'Nieuwe maaltijd';
+        setState((s) => ({ ...s, favMeals: [{ id, name: clean, items: [] }, ...s.favMeals] }));
+        return id;
+      },
+      addFavMealItem: (id, food, grams) =>
+        setState((s) => ({
+          ...s,
+          foods: { ...s.foods, [food.id]: food },
+          favMeals: s.favMeals.map((f) => (f.id === id ? { ...f, items: [...f.items, { food, grams }] } : f)),
+        })),
+      updateFavMealItem: (id, index, grams) =>
+        setState((s) => ({
+          ...s,
+          favMeals: s.favMeals.map((f) =>
+            f.id === id ? { ...f, items: f.items.map((it, i) => (i === index ? { ...it, grams } : it)) } : f,
+          ),
+        })),
+      removeFavMealItem: (id, index) =>
+        setState((s) => ({
+          ...s,
+          favMeals: s.favMeals.map((f) => (f.id === id ? { ...f, items: f.items.filter((_, i) => i !== index) } : f)),
+        })),
       addFavMealTo: (fav, date, meal) =>
         setState((s) => {
           let next = s;

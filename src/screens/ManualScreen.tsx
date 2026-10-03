@@ -17,7 +17,20 @@ function start(x: number | undefined, decimals = 1): string {
  * Met `base` pas je een bestaand product aan; bij een gescand product
  * bewaart de app jouw versie onder dezelfde barcode, zodat hij voortaan die gebruikt.
  */
-export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date: string; barcode?: string; base?: Food }) {
+export function ManualScreen({
+  meal,
+  date,
+  barcode,
+  base,
+  editOnly,
+}: {
+  meal: MealId;
+  date: string;
+  barcode?: string;
+  base?: Food;
+  /** Alleen de waarden aanpassen (bijv. vanuit Favorieten) en terug, zonder een portie te kiezen. */
+  editOnly?: boolean;
+}) {
   const { actions } = useApp();
   const nav = useNav();
   const code = barcode ?? base?.barcode;
@@ -70,8 +83,9 @@ export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date
       barcode: code,
       source: 'eigen',
     };
-    actions.saveFood(food);
-    nav.replace({ name: 'product', food, meal, date });
+    actions.saveFood(food, base?.id);
+    if (editOnly) nav.back();
+    else nav.replace({ name: 'product', food, meal, date });
   };
 
   return (
@@ -126,7 +140,7 @@ export function ManualScreen({ meal, date, barcode, base }: { meal: MealId; date
           Vul een naam in en de energie per 100 {unit} (0–950 kcal).
         </T>
       ) : null}
-      <Button label={base ? 'Opslaan' : 'Opslaan en portie kiezen'} onPress={save} />
+      <Button label={base || editOnly ? 'Opslaan' : 'Opslaan en portie kiezen'} onPress={save} />
     </Screen>
   );
 }

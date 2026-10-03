@@ -21,6 +21,7 @@ import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ImportScreen } from './src/screens/ImportScreen';
 import { MicrosScreen } from './src/screens/MicrosScreen';
+import { FavMealScreen } from './src/screens/FavMealScreen';
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -50,6 +51,7 @@ function Root() {
   const [stack, setStack] = useState<Route[]>([{ name: 'tabs' }]);
   const [tab, setTab] = useState<Tab>('today');
   const [day, setDay] = useState(() => dateKey(new Date()));
+  const [pickFor, setPickFor] = useState<string | null>(null);
 
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
   const nav: Nav = useMemo(
@@ -61,12 +63,20 @@ function Root() {
       push: (r) => setStack((s) => [...s, r]),
       replace: (r) => setStack((s) => [...s.slice(0, -1), r]),
       back,
+      popTo: (name) =>
+        setStack((s) => {
+          const i = s.map((r) => r.name).lastIndexOf(name);
+          return i >= 0 ? s.slice(0, i + 1) : s;
+        }),
       home: () => {
         setStack([{ name: 'tabs' }]);
         setTab('today');
+        setPickFor(null);
       },
+      pickFor,
+      setPickFor,
     }),
-    [tab, day, back],
+    [tab, day, back, pickFor],
   );
 
   useEffect(() => {
@@ -122,7 +132,19 @@ function Root() {
         );
         break;
       case 'manual':
-        screen = <ManualScreen key={stack.length} meal={route.meal} date={route.date} barcode={route.barcode} base={route.base} />;
+        screen = (
+          <ManualScreen
+            key={stack.length}
+            meal={route.meal}
+            date={route.date}
+            barcode={route.barcode}
+            base={route.base}
+            editOnly={route.editOnly}
+          />
+        );
+        break;
+      case 'favmeal':
+        screen = <FavMealScreen key={`${stack.length}-${route.id}`} id={route.id} />;
         break;
       case 'profile':
         screen = <ProfileScreen key={stack.length} />;

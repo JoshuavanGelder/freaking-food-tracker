@@ -33,7 +33,12 @@ declare module '@expo-google-fonts/figtree' { export const Figtree_400Regular: a
 declare module '@react-native-async-storage/async-storage' { const A: { getItem(k: string): Promise<string | null>; setItem(k: string, v: string): Promise<void> }; export default A; }
 declare namespace React { type ReactNode = any; }
 declare namespace JSX { interface IntrinsicAttributes { key?: any } }
-declare module 'expo-clipboard' { export function getStringAsync(): Promise<string>; }
+declare module 'expo-clipboard' { export function getStringAsync(): Promise<string>; export function setStringAsync(t: string): Promise<boolean>; }
+declare module 'expo-file-system' {
+  export class File { constructor(...parts: any[]); readonly exists: boolean; readonly uri: string; create(o?: { overwrite?: boolean; intermediates?: boolean }): void; write(c: string): void; delete(): void; }
+  export const Paths: { cache: any; document: any };
+}
+declare module 'expo-sharing' { export function isAvailableAsync(): Promise<boolean>; export function shareAsync(url: string, o?: { mimeType?: string; dialogTitle?: string; UTI?: string }): Promise<void>; }
 declare module '@react-native-community/datetimepicker' { export const DateTimePickerAndroid: { open(o: { value: Date; mode: 'date' | 'time'; maximumDate?: Date; onChange: (event: { type: string }, date?: Date) => void }): void }; }
 declare module 'expo-image-manipulator' { const x: any; export = x; }
 declare module '@zxing/library' { const x: any; export = x; }
