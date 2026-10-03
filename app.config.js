@@ -33,6 +33,13 @@ module.exports = {
         },
       ],
       'expo-font',
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: 'Freaking Food Tracker gebruikt de camera om barcodes te scannen en je eten te fotograferen.',
+          microphonePermission: false,
+        },
+      ],
     ],
   },
 };

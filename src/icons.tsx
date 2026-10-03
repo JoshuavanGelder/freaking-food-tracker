@@ -15,7 +15,9 @@ export type IconName =
   | 'forward'
   | 'close'
   | 'flame'
-  | 'edit';
+  | 'edit'
+  | 'camera'
+  | 'image';
 
 type Props = { name: IconName; size?: number; color: string; fill?: string; strokeWidth?: number };
 
@@ -97,6 +99,23 @@ export function Icon({ name, size = 24, color, fill = 'none', strokeWidth = 2 }:
       break;
     case 'edit':
       body = <Path {...common} d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />;
+      break;
+    case 'camera':
+      body = (
+        <>
+          <Path {...common} d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+          <Circle {...common} cx={12} cy={13} r={3} />
+        </>
+      );
+      break;
+    case 'image':
+      body = (
+        <>
+          <Path {...common} d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+          <Circle {...common} cx={9} cy={9} r={2} />
+          <Path {...common} d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+        </>
+      );
       break;
   }
   return (

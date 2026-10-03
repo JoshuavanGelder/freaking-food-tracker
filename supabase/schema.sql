@@ -244,3 +244,40 @@ end $$;
 
 revoke all on function public.friend_favorites(uuid) from public, anon;
 grant execute on function public.friend_favorites(uuid) to authenticated;
+
+-- =====================================================================================================
+-- Fotoherkenning: daglimiet per gebruiker. De Edge Function `food-photo` roept use_photo() aan met de
+-- sessie van de gebruiker; dat telt de foto en geeft het aantal van vandaag (Nederlandse tijd) terug.
+-- Werkt alleen met een geldige login, dus dit is meteen de logincontrole van de functie.
+-- =====================================================================================================
+
+create table if not exists public.photo_usage (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day date not null,
+  count integer not null default 0,
+  primary key (user_id, day)
+);
+
+alter table public.photo_usage enable row level security;
+drop policy if exists "eigen fotogebruik lezen" on public.photo_usage;
+create policy "eigen fotogebruik lezen" on public.photo_usage for select to authenticated using (user_id = (select auth.uid()));
+revoke all on public.photo_usage from anon;
+grant select on public.photo_usage to authenticated;
+
+create or replace function public.use_photo() returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  n integer;
+begin
+  if auth.uid() is null then
+    raise exception 'not_signed_in';
+  end if;
+  insert into public.photo_usage (user_id, day, count)
+  values (auth.uid(), (now() at time zone 'Europe/Amsterdam')::date, 1)
+  on conflict (user_id, day) do update set count = public.photo_usage.count + 1
+  returning count into n;
+  return n;
+end $$;
+
+revoke all on function public.use_photo() from public, anon;
+grant execute on function public.use_photo() to authenticated;

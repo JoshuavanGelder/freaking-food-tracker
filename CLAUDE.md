@@ -33,7 +33,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
 
 ## Architectuur
 - `App.tsx`: fonts, AppProvider, eigen route-stack (geen react-navigation), tabs Vandaag/Gewicht/Vrienden/Doelen.
-- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | cloud | friend | micros | favmeal`. `nav.pickFor` = id van de
+- `src/nav.tsx`: routes `tabs | add | scan | photo | product | manual | profile | import | cloud | friend | micros | favmeal`. `nav.pickFor` = id van de
   favoriete maaltijd waaraan producten worden toegevoegd (zoeken/scannen/product werken dan als kiezer, `nav.popTo('favmeal')`).
 - `src/store.tsx`: state in AsyncStorage (`fft-state-v1`): profile, goals, log (LogEntry {id,date,meal,food,grams};
   het hele `Food` wordt in de entry gekopieerd), weights, foods, favorites, recent, lastPortion, favMeals, imports.
@@ -85,6 +85,16 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   `releases/latest` op GitHub (alleen als de repo openbaar is; anders stil), vergelijkt het buildnummer (`extra.build` in
   app.config.js = `GITHUB_RUN_NUMBER`, tag `build-N`) en toont `UpdateBanner` op Vandaag en `UpdateSection` op Doelen.
   Pure logica in `src/logic/update.ts`. De releasetekst begint met de commit-titel (workflow maakt `release-notes.md`).
+- Fotoherkenning (route `photo`, `src/screens/PhotoScreen.tsx`, knop "Foto" naast "Scan barcode" in AddScreen):
+  foto maken of uit de galerij (`expo-image-picker`), verkleinen tot 1024 px (`expo-image-manipulator`), naar de Edge
+  Function `supabase/functions/food-photo` (`recognizeFood` in `src/cloud.ts`, alleen ingelogd). Die telt via rpc
+  `use_photo()` (tabel `photo_usage`, ook de logincontrole) en vraagt Google Gemini (gratis laag AI Studio; secret
+  `GEMINI_API_KEY`, optioneel `GEMINI_MODELS`, `PHOTO_DAILY_LIMIT` standaard 25) om onderdelen met NEVO-achtige zoekterm
+  en grammen (vast JSON-schema). `src/logic/photofood.ts` (pure, getest): `parsePhotoResult`, `matchItem` (eigen product
+  met dezelfde naam > NEVO met `fitScore`: bereid/rauw, geen poeder/light > AI-schatting `ai:<slug>`, source 'eigen').
+  Controlescherm "Dit zie ik": grammen aanpassen, ander product, iets toevoegen, olie/boter bij `verborgen_vet`,
+  toevoegen aan een maaltijd (`addFavMealTo`) en eventueel als favoriete maaltijd. Foto wordt niet bewaard.
+  Functie uitrollen: Supabase-koppeling `deploy_edge_function` (verify_jwt false) werkt wel; kopie staat in de repo.
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).
 

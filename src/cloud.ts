@@ -23,6 +23,7 @@ import {
 } from './logic/sync';
 import { computeGoal, dailyWeights, macroGrams, splitFor } from './logic/calc';
 import { FriendFavorites, parseFriendFavorites } from './logic/friends';
+import { photoError } from './logic/photofood';
 
 export const cloudConfigured = !!(SUPABASE_URL && SUPABASE_KEY);
 
@@ -445,4 +446,33 @@ export const shares = (f: Friend, k: keyof Share) => (k === 'favorites' ? f.shar
 
 export function isSignedIn(): boolean {
   return !!data.session;
+}
+
+// ---------- fotoherkenning ----------
+// Via de Edge Function `food-photo` (zie supabase/functions/food-photo): die houdt de AI-sleutel geheim,
+// controleert de login en telt de daglimiet. Uitleg van het antwoord: src/logic/photofood.ts.
+
+export type PhotoReply = { result: unknown; used: number | null; limit: number | null };
+
+export async function recognizeFood(imageBase64: string, hint: string): Promise<PhotoReply> {
+  const s = await validSession();
+  let res: Response;
+  try {
+    res = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/food-photo', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${s.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageBase64, hint }),
+    });
+  } catch {
+    throw new CloudError('Geen verbinding met internet. Zoeken en scannen werken wel.');
+  }
+  const text = await res.text();
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
+  }
+  if (!res.ok) throw new CloudError(photoError(res.status, body), res.status);
+  return { result: body?.result, used: Number(body?.used) || null, limit: Number(body?.limit) || null };
 }

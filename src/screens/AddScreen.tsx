@@ -123,7 +123,12 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
         ) : null}
       </View>
 
-      <Button label="Scan barcode" icon="barcode" onPress={() => nav.push({ name: 'scan', meal, date })} />
+      <Row style={{ gap: 10 }}>
+        <Button label="Scan barcode" icon="barcode" onPress={() => nav.push({ name: 'scan', meal, date })} style={{ flex: 1 }} />
+        {!pickMeal ? (
+          <Button label="Foto" icon="camera" variant="outline" onPress={() => nav.push({ name: 'photo', meal, date })} style={{ flex: 1 }} />
+        ) : null}
+      </Row>
 
       {searching ? (
         <View style={{ gap: 8 }}>

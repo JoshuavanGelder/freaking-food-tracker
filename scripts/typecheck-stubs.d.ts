@@ -21,7 +21,7 @@ declare module 'react-native' {
   export const Linking: { openURL(url: string): Promise<any> };
   export const Share: { share(c: { message: string; title?: string }): Promise<any> };
   export const AppState: { addEventListener(type: 'change', cb: (state: 'active' | 'background' | 'inactive' | 'unknown' | 'extension') => void): { remove(): void } };
-  export const Modal: any, View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
+  export const Modal: any, Image: any, View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
   export const StyleSheet: { create<T>(s: T): T; absoluteFill: any };
   export function useWindowDimensions(): { width: number; height: number };
   export type StyleProp<T> = any; export type ViewStyle = any; export type TextStyle = any; export type KeyboardTypeOptions = string;
@@ -56,3 +56,12 @@ declare module 'expo-modules-core' { export function requireOptionalNativeModule
 
 declare module 'expo-web-browser' { export function openAuthSessionAsync(url: string, redirectUrl?: string | null, o?: any): Promise<{ type: 'success'; url: string } | { type: 'cancel' | 'dismiss' | 'locked'; url?: undefined }>; }
 declare module 'expo-constants' { const Constants: { expoConfig?: { extra?: Record<string, unknown> } | null }; export default Constants; }
+declare module 'expo-image-picker' {
+  export type MediaType = 'images' | 'videos' | 'livePhotos';
+  export type ImagePickerAsset = { uri: string; width: number; height: number; base64?: string | null };
+  export type ImagePickerResult = { canceled: true; assets: null } | { canceled: false; assets: ImagePickerAsset[] };
+  export type ImagePickerOptions = { mediaTypes?: MediaType[]; quality?: number; base64?: boolean; allowsEditing?: boolean };
+  export function requestCameraPermissionsAsync(): Promise<{ granted: boolean }>;
+  export function launchCameraAsync(o?: ImagePickerOptions): Promise<ImagePickerResult>;
+  export function launchImageLibraryAsync(o?: ImagePickerOptions): Promise<ImagePickerResult>;
+}

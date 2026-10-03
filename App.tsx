@@ -14,6 +14,7 @@ import { TodayScreen } from './src/screens/TodayScreen';
 import { AddScreen } from './src/screens/AddScreen';
 import { ProductScreen } from './src/screens/ProductScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
+import { PhotoScreen } from './src/screens/PhotoScreen';
 import { ManualScreen } from './src/screens/ManualScreen';
 import { WeightScreen } from './src/screens/WeightScreen';
 import { GoalsScreen } from './src/screens/GoalsScreen';
@@ -161,6 +162,9 @@ function Root() {
         break;
       case 'scan':
         screen = <ScanScreen key={stack.length} meal={route.meal} date={route.date} />;
+        break;
+      case 'photo':
+        screen = <PhotoScreen key={stack.length} meal={route.meal} date={route.date} />;
         break;
       case 'product':
         screen = (
