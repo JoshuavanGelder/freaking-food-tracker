@@ -218,34 +218,30 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
                   </Row>
                   {state.favMeals.map((m) => {
                     const kcal = m.items.reduce((s, i) => s + (i.food.per.kcal * i.grams) / 100, 0);
-                    const card = { backgroundColor: C.card, borderRadius: 14, paddingVertical: 10, paddingLeft: 16, paddingRight: 8, gap: 6, ...shadow };
+                    const edit = () => nav.push({ name: 'favmeal', id: m.id });
                     return (
-                      <View key={m.id} style={card}>
-                        <View style={{ gap: 2, paddingRight: 8 }}>
-                          <T size={15} weight="semibold" numberOfLines={2}>
+                      <Row key={m.id} style={{ backgroundColor: C.card, borderRadius: 14, paddingVertical: 8, paddingLeft: 16, paddingRight: 8, gap: 4, ...shadow }}>
+                        <Pressable accessibilityRole="button" accessibilityLabel={`${m.name} aanpassen`} onPress={edit} style={{ flex: 1, gap: 2 }}>
+                          <T size={15} weight="semibold" numberOfLines={1}>
                             {m.name}
                           </T>
-                          <T size={13} color={C.muted} numberOfLines={2}>
-                            {m.items.length ? `${m.items.map((i) => i.food.name).join(', ')} · ${nl(kcal)} kcal` : 'Nog geen producten'}
+                          <T size={13} color={C.muted} numberOfLines={1}>
+                            {m.items.length ? `${m.items.length === 1 ? '1 product' : `${m.items.length} producten`} · ${nl(kcal)} kcal` : 'Nog geen producten'}
                           </T>
-                        </View>
-                        <Row style={{ gap: 6 }}>
-                          <IconButton icon="edit" label={`${m.name} aanpassen`} onPress={() => nav.push({ name: 'favmeal', id: m.id })} iconSize={18} />
-                          <IconButton icon="close" label={`${m.name} uit favorieten halen`} onPress={() => actions.removeFavMeal(m.id)} iconSize={18} />
-                          <View style={{ flex: 1 }} />
-                          <Button
-                            small
-                            icon="plus"
-                            label="Alles"
-                            disabled={!m.items.length}
-                            onPress={() => {
-                              actions.addFavMealTo(m, date, meal);
-                              nav.home();
-                            }}
-                            style={{ borderRadius: 999, paddingHorizontal: 14 }}
-                          />
-                        </Row>
-                      </View>
+                        </Pressable>
+                        <IconButton icon="edit" label={`${m.name} aanpassen`} onPress={edit} iconSize={18} />
+                        <IconButton
+                          icon="plus"
+                          label={m.items.length ? `${m.name} helemaal toevoegen` : `${m.name} aanpassen`}
+                          onPress={() => {
+                            if (!m.items.length) return edit();
+                            actions.addFavMealTo(m, date, meal);
+                            nav.home();
+                          }}
+                          color={C.accent}
+                          bg={C.accentTint}
+                        />
+                      </Row>
                     );
                   })}
                   {state.favMeals.length ? (
