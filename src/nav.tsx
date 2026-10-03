@@ -13,6 +13,7 @@ export type Route =
   | { name: 'favmeal'; id: string }
   | { name: 'profile' }
   | { name: 'import' }
+  | { name: 'cloud' }
   | { name: 'micros'; date: string };
 
 export type Nav = {

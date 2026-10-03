@@ -33,7 +33,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
 
 ## Architectuur
 - `App.tsx`: fonts, AppProvider, eigen route-stack (geen react-navigation), tabs Vandaag/Gewicht/Vrienden/Doelen.
-- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | micros | favmeal`. `nav.pickFor` = id van de
+- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | cloud | micros | favmeal`. `nav.pickFor` = id van de
   favoriete maaltijd waaraan producten worden toegevoegd (zoeken/scannen/product werken dan als kiezer, `nav.popTo('favmeal')`).
 - `src/store.tsx`: state in AsyncStorage (`fft-state-v1`): profile, goals, log (LogEntry {id,date,meal,food,grams};
   het hele `Food` wordt in de entry gekopieerd), weights, foods, favorites, recent, lastPortion, favMeals, imports.
@@ -54,6 +54,17 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   bestaande gegevens winnen, dubbelen (zelfde id / datum / inhoud) komen er niet bij. In `ImportScreen` (bestand kiezen
   met `File.pickFileAsync` of plakken); ook bereikbaar vanaf de onboarding ("Ik heb een reservekopie").
 - `src/logic/importer.ts`: `fft-import` v1 JSON (Foodvisor-overzet), ids `import:<slug>`, dagtotalen `summary:<datum>`.
+- Cloud (Supabase, zonder supabase-js; gewone fetch naar `/auth/v1` en `/rest/v1`):
+  - `src/cloudConfig.ts`: URL + publishable key (leeg = cloud uit, app werkt lokaal). Nooit de secret key in de app.
+  - `supabase/schema.sql`: tabellen `profiles` (profiel/doelen/prefs/naam, `share` + `invite_code` voor fase 3), `libraries`
+    (producten/favorieten/favoriete maaltijden als één jsonb), `entries`, `weights`; RLS = alleen eigen rijen;
+    trigger zet `synced_at` (pull-cursor).
+  - `src/logic/sync.ts` (pure, getest): snapshot met hashes van de laatst gesynchroniseerde versie; wat afwijkt = lokale
+    wijziging → push; anders mag de server bijwerken. Eerste sync: profiel van de server, bibliotheek samengevoegd.
+  - `src/cloud.ts`: inloggen met e-mailcode (OTP; de Supabase-mailtemplates moeten `{{ .Token }}` bevatten), sessie
+    verversen, `syncNow` (pull → push, één tegelijk, veiligheidsstop bij massaal verwijderen). Opslag `fft-cloud-v1`.
+  - `App.tsx` `useAutoSync`: na laden, bij openen/sluiten van de app en 8 s na een wijziging. Scherm `CloudScreen`
+    (route `cloud`, ook vanaf de onboarding).
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).
 

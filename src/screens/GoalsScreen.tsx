@@ -6,10 +6,12 @@ import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
 import { NEVO } from '../data/nevo';
 import { ExportSection } from './ExportSection';
+import { cloudConfigured, useCloudStatus } from '../cloud';
 import { C } from '../theme';
 import { Button, Card, Chip, Field, H1, MacroTile, Row, Screen, Segmented, T } from '../ui';
 
 export function GoalsScreen() {
+  const cloud = useCloudStatus();
   const { state, actions } = useApp();
   const nav = useNav();
   const goal = useGoal();
@@ -182,6 +184,14 @@ export function GoalsScreen() {
           Een reservekopie terugzetten, of eten overzetten met een importtekst van Claude.
         </T>
         <Button small variant="outline" label="Importeren of terugzetten" onPress={() => nav.push({ name: 'import' })} />
+        {cloudConfigured ? (
+          <>
+            <Button small variant="outline" label="Account en cloud" onPress={() => nav.push({ name: 'cloud' })} />
+            <T size={12} color={cloud.error ? C.warn : C.muted}>
+              {cloud.email ? (cloud.error ? cloud.error : `Ingelogd als ${cloud.email}. Je gegevens worden bewaard in de cloud.`) : 'Niet ingelogd: je gegevens staan alleen op deze telefoon.'}
+            </T>
+          </>
+        ) : null}
         <ExportSection />
       </Card>
 

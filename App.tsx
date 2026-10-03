@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, AppState as RNAppState, BackHandler, Pressable, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -22,6 +22,8 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ImportScreen } from './src/screens/ImportScreen';
 import { MicrosScreen } from './src/screens/MicrosScreen';
 import { FavMealScreen } from './src/screens/FavMealScreen';
+import { CloudScreen } from './src/screens/CloudScreen';
+import { isSignedIn, loadCloud, syncNow } from './src/cloud';
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -46,8 +48,34 @@ function Loading() {
   );
 }
 
+/** Synchroniseert met de cloud: bij het openen, bij terugkomen in en weggaan uit de app, en kort na een wijziging. */
+function useAutoSync() {
+  const { state, loaded, actions } = useApp();
+  const bridge = useMemo(() => ({ apply: actions.syncApply, read: actions.readState }), [actions]);
+
+  useEffect(() => {
+    // Pas synchroniseren als de gegevens van de telefoon geladen zijn, anders lijkt alles verwijderd.
+    if (loaded) loadCloud().then(() => syncNow(bridge));
+  }, [loaded, bridge]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const sub = RNAppState.addEventListener('change', (st) => {
+      if (st === 'active' || st === 'background') syncNow(bridge);
+    });
+    return () => sub.remove();
+  }, [loaded, bridge]);
+
+  useEffect(() => {
+    if (!loaded || !isSignedIn()) return;
+    const t = setTimeout(() => syncNow(bridge), 8000);
+    return () => clearTimeout(t);
+  }, [state, loaded, bridge]);
+}
+
 function Root() {
   const { state, loaded } = useApp();
+  useAutoSync();
   const [stack, setStack] = useState<Route[]>([{ name: 'tabs' }]);
   const [tab, setTab] = useState<Tab>('today');
   const [day, setDay] = useState(() => dateKey(new Date()));
@@ -98,8 +126,8 @@ function Root() {
 
   const route = stack[stack.length - 1];
   let screen: React.ReactNode;
-  // Zonder profiel: onboarding, behalve als je vanaf daar een reservekopie gaat terugzetten.
-  if (!state.profile && route.name !== 'import') {
+  // Zonder profiel: onboarding, behalve als je vanaf daar een reservekopie terugzet of inlogt.
+  if (!state.profile && route.name !== 'import' && route.name !== 'cloud') {
     screen = <ProfileScreen onboarding />;
   } else {
     switch (route.name) {
@@ -152,6 +180,9 @@ function Root() {
         break;
       case 'import':
         screen = <ImportScreen key={stack.length} />;
+        break;
+      case 'cloud':
+        screen = <CloudScreen key={stack.length} />;
         break;
       case 'micros':
         screen = <MicrosScreen key={stack.length} date={route.date} />;

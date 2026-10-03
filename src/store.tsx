@@ -4,6 +4,7 @@ import { DEFAULT_GOALS, Goals, Profile, WeightEntry, dailyWeights, dateKey } fro
 import type { Food } from './logic/off';
 import type { ImportEntry } from './logic/importer';
 import { BackupState, mergeBackup } from './logic/backup';
+import type { SyncState } from './logic/sync';
 
 export type MealId = 'ontbijt' | 'lunch' | 'diner' | 'snacks';
 
@@ -105,6 +106,10 @@ type Actions = {
   importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
   /** Reservekopie terugzetten (samenvoegen, bestaande gegevens blijven staan). */
   restoreBackup: (backup: BackupState, withProfile: boolean) => void;
+  /** Voor de cloud-sync: functionele update op de nieuwste state, met een resultaat terug. */
+  syncApply: <R>(f: (s: SyncState) => { state: SyncState; result: R }) => Promise<R>;
+  /** Voor de cloud-sync: de nieuwste state (ook als die nog niet getekend is). */
+  readState: () => Promise<AppState>;
 };
 
 type Ctx = { state: AppState; loaded: boolean; actions: Actions };
@@ -256,6 +261,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       restoreBackup: (backup, withProfile) => setState((s) => mergeBackup(s, backup, withProfile).state),
+      syncApply: <R,>(f: (s: SyncState) => { state: SyncState; result: R }) =>
+        new Promise<R>((resolve) =>
+          setState((s) => {
+            const r = f(s);
+            resolve(r.result);
+            return r.state === s ? s : ({ ...s, ...r.state } as AppState);
+          }),
+        ),
+      readState: () =>
+        new Promise<AppState>((resolve) =>
+          setState((s) => {
+            resolve(s);
+            return s;
+          }),
+        ),
     }),
     [addEntry],
   );

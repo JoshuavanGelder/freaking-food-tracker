@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { ACTIVITY_LEVELS, Sex, parseNumber } from '../logic/calc';
 import { useApp } from '../store';
 import { useNav } from '../nav';
+import { cloudConfigured } from '../cloud';
 import { C, F } from '../theme';
 import { BackHeader, Button, Card, Field, H1, Screen, Segmented, T } from '../ui';
 
@@ -52,12 +53,15 @@ export function ProfileScreen({ onboarding }: { onboarding?: boolean }) {
           <T color={C.muted} style={{ lineHeight: 21 }}>
             Vul je gegevens in. Daarmee berekenen we je dagelijkse verbruik en je kcal-doel. Alles blijft op je telefoon.
           </T>
+          {cloudConfigured ? (
+            <Button small label="Inloggen met je account" onPress={() => nav.push({ name: 'cloud' })} style={{ marginTop: 6 }} />
+          ) : null}
           <Button
             small
             variant="outline"
             label="Ik heb een reservekopie"
             onPress={() => nav.push({ name: 'import' })}
-            style={{ marginTop: 6 }}
+            style={{ marginTop: cloudConfigured ? 0 : 6 }}
           />
         </View>
       ) : (
