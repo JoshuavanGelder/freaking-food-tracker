@@ -6,7 +6,7 @@
 
 -- ---------- hulpfunctie: synced_at = moment van opslaan op de server ----------
 create or replace function public.fft_touch() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = '' as $$
 begin
   new.synced_at := clock_timestamp();
   return new;

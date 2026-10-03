@@ -112,7 +112,8 @@ async function call(path: string, o: { method?: string; body?: unknown; token?: 
       method: o.method ?? 'GET',
       headers: {
         apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${o.token ?? SUPABASE_KEY}`,
+        // De nieuwe publishable key is geen JWT: alleen meesturen als apikey, Authorization alleen met een sessie.
+        ...(o.token ? { Authorization: `Bearer ${o.token}` } : {}),
         'Content-Type': 'application/json',
         ...(o.prefer ? { Prefer: o.prefer } : {}),
       },
