@@ -21,7 +21,7 @@ declare module 'react-native' {
   export const Linking: { openURL(url: string): Promise<any> };
   export const Share: { share(c: { message: string; title?: string }): Promise<any> };
   export const AppState: { addEventListener(type: 'change', cb: (state: 'active' | 'background' | 'inactive' | 'unknown' | 'extension') => void): { remove(): void } };
-  export const View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
+  export const Modal: any, View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
   export const StyleSheet: { create<T>(s: T): T; absoluteFill: any };
   export function useWindowDimensions(): { width: number; height: number };
   export type StyleProp<T> = any; export type ViewStyle = any; export type TextStyle = any; export type KeyboardTypeOptions = string;

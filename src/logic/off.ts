@@ -41,6 +41,8 @@ export type Food = {
   unit?: Unit;
   /** Inhoud van de hele verpakking in g of ml. */
   packageG?: number;
+  /** Eigen grootte van keukenmaten voor dit product in g of ml, bijv. { el: 21 } voor honing (zie measures.ts). */
+  measures?: Record<string, number>;
   /** Uitleg als de app de gegevens heeft gecorrigeerd. */
   note?: string;
   /** Barcode, ook bij eigen producten, zodat scannen ze terugvindt. */

@@ -97,6 +97,14 @@ export function cleanFood(x: any): Food | null {
   for (const k of ['servingG', 'packageG'] as const) if (f[k] != null && !(num(f[k]) && f[k]! > 0 && f[k]! < 100000)) delete f[k];
   if (f.servingLabel != null && typeof f.servingLabel !== 'string') delete f.servingLabel;
   if (f.unit != null && f.unit !== 'g' && f.unit !== 'ml') delete f.unit;
+  if (f.measures != null) {
+    // eigen keukenmaten (zie measures.ts; hier gedupliceerd i.v.m. de regel over runtime-imports)
+    const m: Record<string, number> = {};
+    const raw = typeof f.measures === 'object' && !Array.isArray(f.measures) ? (f.measures as Record<string, unknown>) : {};
+    for (const k of ['tl', 'dl', 'el', 'kopje', 'glas', 'mok']) if (num(raw[k]) && raw[k] > 0 && raw[k] <= 1000) m[k] = raw[k];
+    if (Object.keys(m).length) f.measures = m;
+    else delete f.measures;
+  }
   return f;
 }
 

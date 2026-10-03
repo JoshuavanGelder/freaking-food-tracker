@@ -46,6 +46,9 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   Data opnieuw maken: `python3 scripts/nevo-convert.py NEVO2025_v9.0.csv` (RIVM-zip, niet in de repo).
 - `src/logic/micros.ts`: 8 vitamines + 8 mineralen (MICRO_KEYS), normen Gezondheidsraad 2018 per geslacht/leeftijd,
   zout max 6 g (= natrium × 2,5), verzadigd vet max 10 en%, `summarizeMicros` met dekking en top-bronnen.
+- `src/logic/measures.ts`: keukenmaten (theelepel 5, dessertlepel 10, eetlepel 15; bij ml ook kopje 125, glas 200, mok 250).
+  In `ProductScreen` de modus "Keukenmaat" (aantal × maat). Grootte is een schatting (water); aanpasbaar per product en
+  onthouden in `Food.measures` (`withMeasure`), dat meesynchroniseert met de bibliotheek.
 - `src/logic/mine.ts`: zoeken in recent/favorieten/eigen producten (komt in AddScreen na de NEVO-treffers).
 - `src/logic/exporter.ts`: export als JSON (`fft-export` v1) voor "deze week" (afgelopen 7 dagen incl. vandaag) en "alles";
   opslaan in een gekozen map (`Directory.pickDirectoryAsync`, SAF) of delen via expo-sharing (`src/screens/ExportSection.tsx`,
@@ -72,7 +75,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
     (`profiles.share`: totals, log, weight, goals; ontbreekt = aan) en `friend_favorites` (sleutel `favorites`; ontbreekt = **uit**). `profiles.target` = dagdoel, door `syncNow` verstuurd
     (`targetOf`). App: `src/cloud.ts` (rpc-aanroepen), `src/logic/friends.ts` (samenvatting, code), `FriendsScreen`
     (code delen/invullen, lijst, wat je deelt) en `FriendScreen` (route `friend`; onderaan `FavoritesCard`: favoriete producten
-    en maaltijden van de vriend, kiezen aan welke maaltijd van vandaag, toevoegen of als eigen favoriet bewaren;
+    en maaltijden van de vriend; "Toevoegen" opent de popup `MealSheet` (ontbijt/lunch/diner/snacks, vandaag of gisteren), of bewaren als eigen favoriet;
     `parseFriendFavorites` in `friends.ts` controleert wat uit de cloud komt).
   - Database-wijzigingen via de Supabase-koppeling worden bij Joshua geannuleerd: geef hem de SQL om in de SQL Editor te
     plakken; lezen/controleren via de koppeling werkt wel.

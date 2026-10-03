@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { forGrams, nl, parseNumber, sumNutrition } from '../logic/calc';
 import { Food, portionCount, unitOf } from '../logic/off';
+import { MeasureId, measureById, measureCount, measureSize, measuresFor, withMeasure } from '../logic/measures';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
@@ -34,16 +35,37 @@ export function ProductScreen({
   const food = useMemo(() => withNevoData(routeFood), [routeFood]);
   const start = initial ?? food.servingG ?? 100;
   const startCount = portionCount(food, start);
-  const [mode, setMode] = useState<'portie' | 'gram'>(food.servingG && (initial == null || startCount != null) ? 'portie' : 'gram');
+  const [mode, setMode] = useState<'portie' | 'maat' | 'gram'>(food.servingG && (initial == null || startCount != null) ? 'portie' : 'gram');
   const [text, setText] = useState(String(Math.round(start)));
   const [countText, setCountText] = useState(fmtCount(startCount ?? 1));
   const [sizeText, setSizeText] = useState(food.servingG ? String(Math.round(food.servingG)) : '');
+
+  // Keukenmaten: eetlepel, theelepel, glas ... met een grootte die je per product kunt aanpassen.
+  const maten = measuresFor(unitOf(food));
+  const showMaat = !food.id.startsWith('summary:');
+  const [measureId, setMeasureId] = useState<MeasureId>('el');
+  const measure = measureById(measureId)!;
+  const [mCountText, setMCountText] = useState('1');
+  const [mSizeText, setMSizeText] = useState(String(measureSize(measureById('el')!, food.measures)));
+  const mSize = parseNumber(mSizeText);
+  const mSizeOk = mSize != null && mSize > 0 && mSize <= 1000;
+  const mCount = parseNumber(mCountText);
+  const mCountOk = mCount != null && mCount > 0 && mCount <= 50;
 
   const size = parseNumber(sizeText);
   const sizeOk = size != null && size > 0 && size <= 5000;
   const count = parseNumber(countText);
   const countOk = count != null && count > 0 && count <= 50;
-  const parsed = mode === 'portie' ? (sizeOk && countOk ? count! * size! : null) : parseNumber(text);
+  const parsed =
+    mode === 'portie'
+      ? sizeOk && countOk
+        ? count! * size!
+        : null
+      : mode === 'maat'
+        ? mSizeOk && mCountOk
+          ? mCount! * mSize!
+          : null
+        : parseNumber(text);
   const valid = parsed != null && parsed > 0 && parsed <= 5000;
   const g = valid ? parsed! : 0;
   const n = forGrams(food.per, g);
@@ -64,10 +86,16 @@ export function ProductScreen({
   const word = u === 'ml' ? 'ml' : 'gram';
   const setG = (v: number) => setText(String(Math.max(0, Math.round(v))));
   const setCount = (v: number) => setCountText(fmtCount(Math.max(0.5, Math.round(v * 2) / 2)));
-  const switchMode = (m: 'portie' | 'gram') => {
+  const setMCount = (v: number) => setMCountText(fmtCount(Math.max(0.5, Math.round(v * 2) / 2)));
+  const pickMeasure = (id: MeasureId) => {
+    setMeasureId(id);
+    setMSizeText(String(measureSize(measureById(id)!, food.measures)));
+  };
+  const switchMode = (m: 'portie' | 'maat' | 'gram') => {
     if (m === mode) return;
     if (m === 'gram' && valid) setG(g);
     if (m === 'portie' && valid && sizeOk) setCount(g / size!);
+    if (m === 'maat' && valid && mSizeOk) setMCount(measureCount(g, mSize!) ?? g / mSize!);
     setMode(m);
   };
   const portionWhat =
@@ -93,6 +121,14 @@ export function ProductScreen({
     if (mode === 'portie' && sizeOk && Math.round(size!) !== Math.round(food.servingG ?? -1)) {
       f = { ...food, servingG: size!, servingLabel: undefined };
       actions.saveFood(f);
+    }
+    // Een aangepaste grootte van een keukenmaat onthouden voor dit product.
+    if (mode === 'maat' && mSizeOk) {
+      const own = withMeasure(food.measures, measure, mSize!);
+      if (JSON.stringify(own) !== JSON.stringify(food.measures)) {
+        f = { ...f, measures: own };
+        actions.saveFood(f);
+      }
     }
     if (pickMeal) {
       actions.addFavMealItem(pickMeal.id, f, g);
@@ -151,11 +187,19 @@ export function ProductScreen({
       </View>
 
       <Card style={{ padding: 20, gap: 16 }}>
-        <Segmented<'portie' | 'gram'>
-          options={[
-            { value: 'portie', label: 'Aantal porties' },
-            { value: 'gram', label: u === 'ml' ? 'Milliliter' : 'Gram' },
-          ]}
+        <Segmented<'portie' | 'maat' | 'gram'>
+          options={
+            showMaat
+              ? [
+                  { value: 'portie', label: 'Porties' },
+                  { value: 'maat', label: 'Keukenmaat' },
+                  { value: 'gram', label: u === 'ml' ? 'Milliliter' : 'Gram' },
+                ]
+              : [
+                  { value: 'portie', label: 'Aantal porties' },
+                  { value: 'gram', label: u === 'ml' ? 'Milliliter' : 'Gram' },
+                ]
+          }
           value={mode}
           onChange={switchMode}
         />
@@ -216,6 +260,68 @@ export function ProductScreen({
                 Samen {nl(g)} {u}
               </T>
             )}
+          </>
+        ) : mode === 'maat' ? (
+          <>
+            <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+              {maten.map((m) => (
+                <Chip key={m.id} label={m.label} on={m.id === measureId} onPress={() => pickMeasure(m.id)} />
+              ))}
+            </Row>
+            <Stepper
+              value={mCountText}
+              onChange={setMCountText}
+              onMinus={() => setMCount((mCount ?? 1) - (mCount != null && mCount <= 1 ? 0.5 : 1))}
+              onPlus={() => setMCount((mCount ?? 0) + 1)}
+              unit={mCount === 1 ? measure.label.toLowerCase() : measure.plural}
+              label={`Aantal ${measure.plural}`}
+              ok={mCountOk}
+              keyboardType="decimal-pad"
+            />
+            <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+              {[0.5, 1, 2, 3].map((c) => (
+                <Chip key={c} label={fmtCount(c)} on={mCount === c} onPress={() => setMCount(c)} />
+              ))}
+            </Row>
+            <Row style={{ gap: 10 }}>
+              <T size={14} color={C.muted} style={{ flex: 1 }}>
+                1 {measure.label.toLowerCase()} is
+              </T>
+              <View style={{ width: 120 }}>
+                <TextInput
+                  accessibilityLabel={`Grootte van een ${measure.label.toLowerCase()} in ${word}`}
+                  value={mSizeText}
+                  onChangeText={setMSizeText}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                  style={{
+                    height: 44,
+                    borderWidth: 1.5,
+                    borderColor: mSizeOk ? C.line : C.warn,
+                    borderRadius: 12,
+                    backgroundColor: C.card,
+                    paddingLeft: 12,
+                    paddingRight: 40,
+                    fontFamily: F.semibold,
+                    fontSize: 16,
+                    color: C.ink,
+                    textAlign: 'right',
+                  }}
+                />
+                <T size={14} color={C.muted} style={{ position: 'absolute', right: 12, top: 12 }}>
+                  {u}
+                </T>
+              </View>
+            </Row>
+            <T size={13} color={mSizeOk ? C.muted : C.warn}>
+              {!mSizeOk
+                ? `Vul in hoeveel ${word} dat is.`
+                : food.measures?.[measure.id] != null
+                  ? `Samen ${nl(g)} ${u} · jouw maat voor dit product`
+                  : u === 'g'
+                    ? `Samen ${nl(g)} ${u} · een schatting: een lepel suiker weegt minder dan een lepel honing. Pas het aan, dan onthoudt de app het voor dit product.`
+                    : `Samen ${nl(g)} ${u}`}
+            </T>
           </>
         ) : (
           <>

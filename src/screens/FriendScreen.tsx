@@ -3,11 +3,14 @@ import { ActivityIndicator, View } from 'react-native';
 import { Friend, FriendDay, FriendEntry, friendDays, friendEntries, friendFavorites, friendWeights, removeFriend, shares } from '../cloud';
 import { addDays, dateKey, formatLong, formatShort, nl } from '../logic/calc';
 import { FriendFavorites, mealKcal } from '../logic/friends';
+import { Food } from '../logic/off';
 import { amountText } from '../logic/off';
-import { MEALS, MealId, itemsKey, mealForNow, mealLabel, useApp } from '../store';
+import { MEALS, MealId, itemsKey, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { C } from '../theme';
-import { BackHeader, Bar, Button, Card, Chip, HeartButton, IconButton, Row, Screen, T } from '../ui';
+import { BackHeader, Bar, Button, Card, HeartButton, IconButton, Row, Screen, T } from '../ui';
+import { FriendFavMeal } from '../logic/friends';
+import { MealSheet } from './MealSheet';
 
 /** Eén vriend: dagtotalen per dag, wat hij at (als hij dat deelt) en zijn gewicht. */
 export function FriendScreen({ friend }: { friend: Friend }) {
@@ -229,11 +232,26 @@ export function FriendScreen({ friend }: { friend: Friend }) {
 function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
   const nav = useNav();
   const { state, actions } = useApp();
-  const today = dateKey(new Date());
   const [favs, setFavs] = useState<FriendFavorites | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [meal, setMeal] = useState<MealId>(mealForNow());
+  // Wat er in de popup wordt toegevoegd: een hele maaltijd of één product.
+  const [sheet, setSheet] = useState<{ meal: FriendFavMeal } | { food: Food } | null>(null);
   const [done, setDone] = useState<string | null>(null);
+
+  const pick = (meal: MealId, date: string, dayLabel: string) => {
+    if (!sheet) return;
+    if ('meal' in sheet) {
+      const fm = sheet.meal;
+      actions.addFavMealTo({ id: fm.id, name: fm.name, items: fm.items }, date, meal);
+      setDone(`${fm.name} staat bij ${mealLabel(meal)} (${dayLabel}).`);
+      setSheet(null);
+    } else {
+      const food = sheet.food;
+      setSheet(null);
+      nav.setDay(date);
+      nav.push({ name: 'product', food, meal, date });
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -268,25 +286,6 @@ function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
 
       {favs && !empty ? (
         <>
-          <View style={{ gap: 6 }}>
-            <T size={12} color={C.muted}>
-              Toevoegen aan (vandaag):
-            </T>
-            <Row style={{ gap: 6, flexWrap: 'wrap' }}>
-              {MEALS.map((m) => (
-                <Chip
-                  key={m.id}
-                  label={m.label}
-                  on={meal === m.id}
-                  onPress={() => {
-                    setMeal(m.id);
-                    setDone(null);
-                  }}
-                />
-              ))}
-            </Row>
-          </View>
-
           {favs.meals.length ? (
             <View style={{ gap: 8 }}>
               <T size={13} weight="bold">
@@ -313,8 +312,8 @@ function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
                       variant="outline"
                       label="Toevoegen"
                       onPress={() => {
-                        actions.addFavMealTo({ id: fm.id, name: fm.name, items: fm.items }, today, meal);
-                        setDone(`${fm.name} staat bij ${mealLabel(meal)}.`);
+                        setDone(null);
+                        setSheet({ meal: fm });
                       }}
                     />
                   </Row>
@@ -352,8 +351,8 @@ function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
                     variant="outline"
                     label="Toevoegen"
                     onPress={() => {
-                      nav.setDay(today);
-                      nav.push({ name: 'product', food: f, meal, date: today });
+                      setDone(null);
+                      setSheet({ food: f });
                     }}
                   />
                 </Row>
@@ -368,6 +367,20 @@ function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
           ) : null}
         </>
       ) : null}
+
+      <MealSheet
+        visible={!!sheet}
+        title={sheet ? ('meal' in sheet ? sheet.meal.name : sheet.food.name) : ''}
+        subtitle={
+          sheet && 'meal' in sheet
+            ? `${sheet.meal.items.length} ${sheet.meal.items.length === 1 ? 'product' : 'producten'} · ${nl(mealKcal(sheet.meal.items))} kcal`
+            : sheet
+              ? 'Je kiest daarna de hoeveelheid.'
+              : undefined
+        }
+        onPick={pick}
+        onClose={() => setSheet(null)}
+      />
     </Card>
   );
 }
