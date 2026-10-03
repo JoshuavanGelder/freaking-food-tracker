@@ -52,6 +52,13 @@ export function ProfileScreen({ onboarding }: { onboarding?: boolean }) {
           <T color={C.muted} style={{ lineHeight: 21 }}>
             Vul je gegevens in. Daarmee berekenen we je dagelijkse verbruik en je kcal-doel. Alles blijft op je telefoon.
           </T>
+          <Button
+            small
+            variant="outline"
+            label="Ik heb een reservekopie"
+            onPress={() => nav.push({ name: 'import' })}
+            style={{ marginTop: 6 }}
+          />
         </View>
       ) : (
         <BackHeader title="Profiel" onBack={nav.back} />

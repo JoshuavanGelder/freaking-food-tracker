@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_GOALS, Goals, Profile, WeightEntry, dailyWeights, dateKey } from './logic/calc';
 import type { Food } from './logic/off';
 import type { ImportEntry } from './logic/importer';
+import { BackupState, mergeBackup } from './logic/backup';
 
 export type MealId = 'ontbijt' | 'lunch' | 'diner' | 'snacks';
 
@@ -102,6 +103,8 @@ type Actions = {
   removeFavMealItem: (id: string, index: number) => void;
   addFavMealTo: (fav: FavMeal, date: string, meal: MealId) => void;
   importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
+  /** Reservekopie terugzetten (samenvoegen, bestaande gegevens blijven staan). */
+  restoreBackup: (backup: BackupState, withProfile: boolean) => void;
 };
 
 type Ctx = { state: AppState; loaded: boolean; actions: Actions };
@@ -252,6 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             imports: [...next.imports, id],
           };
         }),
+      restoreBackup: (backup, withProfile) => setState((s) => mergeBackup(s, backup, withProfile).state),
     }),
     [addEntry],
   );

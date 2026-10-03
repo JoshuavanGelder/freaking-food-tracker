@@ -35,7 +35,12 @@ declare namespace React { type ReactNode = any; }
 declare namespace JSX { interface IntrinsicAttributes { key?: any } }
 declare module 'expo-clipboard' { export function getStringAsync(): Promise<string>; export function setStringAsync(t: string): Promise<boolean>; }
 declare module 'expo-file-system' {
-  export class File { constructor(...parts: any[]); readonly exists: boolean; readonly uri: string; create(o?: { overwrite?: boolean; intermediates?: boolean }): void; write(c: string): void; delete(): void; }
+  export class File {
+    constructor(...parts: any[]); readonly exists: boolean; readonly uri: string;
+    create(o?: { overwrite?: boolean; intermediates?: boolean }): void; write(c: string): void; delete(): void; text(): Promise<string>;
+    static pickFileAsync(o?: { initialUri?: string; mimeTypes?: string | string[]; multipleFiles?: false }): Promise<{ result: File; canceled: false } | { result: null; canceled: true }>;
+  }
+  export class Directory { constructor(...parts: any[]); readonly uri: string; createFile(name: string, mimeType: string | null): File; static pickDirectoryAsync(initialUri?: string): Promise<Directory>; }
   export const Paths: { cache: any; document: any };
 }
 declare module 'expo-sharing' { export function isAvailableAsync(): Promise<boolean>; export function shareAsync(url: string, o?: { mimeType?: string; dialogTitle?: string; UTI?: string }): Promise<void>; }

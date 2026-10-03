@@ -8,7 +8,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   een Windows-pc, en die alleen als het echt nodig is.
 - Hij installeert de APK uit GitHub Releases. Elke push naar `main` = nieuwe build + release `build-N`.
 - Kort en concreet rapporteren; na een push de snelle `checks`-job meteen controleren (is binnen ~2 min klaar),
-  niet lang wachten. De APK-build duurt ~10 min.
+  niet lang wachten. De APK-build staat meestal na ~6 min als release klaar.
 - Scanner voor GS1 DataBar (AH vers vlees) werkt niet; **geparkeerd op verzoek van Joshua** — niet aan werken
   tenzij hij erom vraagt. Code intypen werkt wel.
 
@@ -48,7 +48,11 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   zout max 6 g (= natrium × 2,5), verzadigd vet max 10 en%, `summarizeMicros` met dekking en top-bronnen.
 - `src/logic/mine.ts`: zoeken in recent/favorieten/eigen producten (komt in AddScreen na de NEVO-treffers).
 - `src/logic/exporter.ts`: export als JSON (`fft-export` v1) voor "deze week" (afgelopen 7 dagen incl. vandaag) en "alles";
-  delen via expo-file-system + expo-sharing (`src/screens/ExportSection.tsx`, op Doelen → Gegevens).
+  opslaan in een gekozen map (`Directory.pickDirectoryAsync`, SAF) of delen via expo-sharing (`src/screens/ExportSection.tsx`,
+  op Doelen → Gegevens). "Alles" bevat in `backup` de volledige app-state.
+- `src/logic/backup.ts`: reservekopie uit een "Alles"-export terugzetten (`parseBackup`, `mergeBackup`): samenvoegen,
+  bestaande gegevens winnen, dubbelen (zelfde id / datum / inhoud) komen er niet bij. In `ImportScreen` (bestand kiezen
+  met `File.pickFileAsync` of plakken); ook bereikbaar vanaf de onboarding ("Ik heb een reservekopie").
 - `src/logic/importer.ts`: `fft-import` v1 JSON (Foodvisor-overzet), ids `import:<slug>`, dagtotalen `summary:<datum>`.
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).

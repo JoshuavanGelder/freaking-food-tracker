@@ -179,9 +179,9 @@ export function GoalsScreen() {
           Gegevens
         </T>
         <T size={13} color={C.muted}>
-          Eten overzetten, bijvoorbeeld uit Foodvisor: plak de importtekst die je van Claude krijgt.
+          Een reservekopie terugzetten, of eten overzetten met een importtekst van Claude.
         </T>
-        <Button small variant="outline" label="Importeren" onPress={() => nav.push({ name: 'import' })} />
+        <Button small variant="outline" label="Importeren of terugzetten" onPress={() => nav.push({ name: 'import' })} />
         <ExportSection />
       </Card>
 

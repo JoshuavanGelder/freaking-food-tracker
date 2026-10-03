@@ -98,7 +98,8 @@ function Root() {
 
   const route = stack[stack.length - 1];
   let screen: React.ReactNode;
-  if (!state.profile) {
+  // Zonder profiel: onboarding, behalve als je vanaf daar een reservekopie gaat terugzetten.
+  if (!state.profile && route.name !== 'import') {
     screen = <ProfileScreen onboarding />;
   } else {
     switch (route.name) {

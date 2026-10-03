@@ -92,7 +92,11 @@ function foodSummary(f: Food) {
   return { id: f.id, name: f.name, ...(f.brand ? { brand: f.brand } : {}), unit: f.unit ?? 'g', per100: f.per, ...(f.servingG ? { servingG: f.servingG } : {}) };
 }
 
-export function buildExport(scope: ExportScope, today: string, now: string, input: ExportInput) {
+/**
+ * `backup`: de volledige app-state. Gaat alleen mee bij 'alles' en maakt terugzetten mogelijk
+ * (Doelen → Gegevens → Importeren of terugzetten, zie backup.ts).
+ */
+export function buildExport(scope: ExportScope, today: string, now: string, input: ExportInput, backup?: unknown) {
   const range = exportRange(scope, today, input) ?? { from: today, to: today };
   const inRange = (d: string) => d >= range.from && d <= range.to;
 
@@ -158,6 +162,7 @@ export function buildExport(scope: ExportScope, today: string, now: string, inpu
       name: m.name,
       items: m.items.map((i) => ({ name: i.food.name, amount: round(i.grams), unit: i.food.unit ?? 'g', ...amounts(i.food.per, i.grams) })),
     }));
+    if (backup != null) out.backup = backup;
   }
   return out;
 }
