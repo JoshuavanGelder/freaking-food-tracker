@@ -1,8 +1,9 @@
-// Cloud: inloggen met een code per e-mail en synchroniseren met Supabase, met gewone fetch-aanroepen
+// Cloud: inloggen met Google en synchroniseren met Supabase, met gewone fetch-aanroepen
 // (geen supabase-js, dus geen extra native afhankelijkheden). De logica zit in src/logic/sync.ts.
 
 import { useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { SUPABASE_KEY, SUPABASE_URL } from './cloudConfig';
 import {
   EMPTY_SNAPSHOT,
@@ -144,23 +145,52 @@ function toSession(b: any, email?: string): Session {
   };
 }
 
-// ---------- inloggen ----------
+// ---------- inloggen met Google ----------
+// Via het Google-venster in de browser (Supabase OAuth, impliciete flow). Supabase stuurt terug naar
+// REDIRECT met de sessie in het #-deel van de url. REDIRECT moet bij Supabase → URL Configuration staan,
+// en het schema (freakingfoodtracker) staat in app.config.js.
 
-export const cleanEmail = (e: string) => e.trim().toLowerCase();
+export const REDIRECT = 'freakingfoodtracker://login';
 
-/** Stuurt een inlogcode naar het e-mailadres (maakt het account aan als het nog niet bestaat). */
-export async function sendCode(email: string): Promise<void> {
-  await call('/auth/v1/otp', { method: 'POST', body: { email: cleanEmail(email), create_user: true } });
+/** Leest `a=1&b=2` uit het #- en ?-deel van een url. */
+export function urlParams(url: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = [url.split('#')[1] ?? '', (url.split('#')[0].split('?')[1] ?? '')];
+  for (const part of parts) {
+    for (const kv of part.split('&')) {
+      if (!kv) continue;
+      const i = kv.indexOf('=');
+      const k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i));
+      const v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+      if (!(k in out)) out[k] = v;
+    }
+  }
+  return out;
 }
 
-export async function verifyCode(email: string, code: string): Promise<void> {
-  const b = await call('/auth/v1/verify', { method: 'POST', body: { type: 'email', email: cleanEmail(email), token: code.replace(/\D/g, '') } });
-  const session = toSession(b, cleanEmail(email));
+async function startSession(session: Session) {
   // Ander account dan eerst: opnieuw beginnen met synchroniseren (alles van de telefoon gaat dan omhoog).
   const sameUser = data.session?.userId === session.userId;
   data = { ...data, session, ...(sameUser ? {} : { snap: EMPTY_SNAPSHOT, cursor: EMPTY.cursor, lastSync: null }) };
   await save();
   emit({ email: session.email, error: null, lastSync: data.lastSync });
+}
+
+/** Opent het Google-inlogvenster. Geeft false terug als je het venster sluit zonder in te loggen. */
+export async function signInWithGoogle(): Promise<boolean> {
+  const url = `${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(REDIRECT)}`;
+  const res = await WebBrowser.openAuthSessionAsync(url, REDIRECT);
+  if (res.type !== 'success' || !('url' in res) || !res.url) return false;
+  const p = urlParams(res.url as string);
+  if (p.error || p.error_description) {
+    throw new CloudError(`Inloggen met Google lukte niet${p.error_description ? `: ${p.error_description}` : '.'}`);
+  }
+  if (!p.access_token || !p.refresh_token) throw new CloudError('Inloggen met Google lukte niet: geen sessie ontvangen.');
+  const user = await call('/auth/v1/user', { token: p.access_token });
+  await startSession(
+    toSession({ access_token: p.access_token, refresh_token: p.refresh_token, expires_in: p.expires_in, user }),
+  );
+  return true;
 }
 
 /** Uitloggen. De gegevens blijven op de telefoon staan. */

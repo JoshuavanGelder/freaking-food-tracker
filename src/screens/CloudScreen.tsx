@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { cloudConfigured, sendCode, setName, signOut, syncNow, useCloudStatus, verifyCode } from '../cloud';
+import { cloudConfigured, setName, signInWithGoogle, signOut, syncNow, useCloudStatus } from '../cloud';
 import { useApp } from '../store';
 import { useNav } from '../nav';
 import { C } from '../theme';
@@ -17,23 +17,17 @@ function since(iso: string | null): string {
   return today ? `vandaag om ${time}` : `${d.getDate()}-${d.getMonth() + 1} om ${time}`;
 }
 
-/** Account en cloud: inloggen met een code per e-mail, status van de sync, naam voor vrienden, uitloggen. */
+/** Account en cloud: inloggen met Google, status van de sync, naam voor vrienden, uitloggen. */
 export function CloudScreen() {
   const { actions } = useApp();
   const nav = useNav();
   const st = useCloudStatus();
   const bridge = { apply: actions.syncApply, read: actions.readState };
 
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [name, setNameText] = useState<string | null>(null);
   const [confirmOut, setConfirmOut] = useState(false);
-
-  const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const okCode = /^\d{6,10}$/.test(code.replace(/\D/g, '')) && code.replace(/\D/g, '').length >= 6;
 
   const run = async (f: () => Promise<void>) => {
     setBusy(true);
@@ -47,19 +41,10 @@ export function CloudScreen() {
     }
   };
 
-  const askCode = () =>
+  const google = () =>
     run(async () => {
-      await sendCode(email);
-      setStep('code');
-      setMsg({ text: `We hebben een code gestuurd naar ${email.trim().toLowerCase()}. Kijk ook in je spam.` });
-    });
-
-  const login = () =>
-    run(async () => {
-      await verifyCode(email, code);
-      setCode('');
-      setStep('email');
-      await syncNow(bridge);
+      const ok = await signInWithGoogle();
+      if (ok) await syncNow(bridge);
     });
 
   if (!cloudConfigured) {
@@ -88,50 +73,11 @@ export function CloudScreen() {
           internet.
         </T>
         <Card style={{ gap: 12 }}>
-          {step === 'email' ? (
-            <>
-              <Field
-                label="E-mailadres"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                placeholder="naam@voorbeeld.nl"
-                invalid={email.length > 3 && !okEmail}
-                onSubmitEditing={okEmail ? askCode : undefined}
-              />
-              <Button label={busy ? 'Bezig…' : 'Stuur inlogcode'} onPress={askCode} disabled={!okEmail || busy} />
-              <T size={12} color={C.muted}>
-                Geen wachtwoord nodig: je krijgt elke keer een code per e-mail. Heb je nog geen account, dan wordt het
-                aangemaakt.
-              </T>
-            </>
-          ) : (
-            <>
-              <Field
-                label="Code uit de e-mail"
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                placeholder="123456"
-                onSubmitEditing={okCode ? login : undefined}
-              />
-              <Button label={busy ? 'Bezig…' : 'Inloggen'} onPress={login} disabled={!okCode || busy} />
-              <Row style={{ gap: 8 }}>
-                <Button small variant="outline" label="Code opnieuw sturen" onPress={askCode} disabled={busy} style={{ flex: 1 }} />
-                <Button
-                  small
-                  variant="ghost"
-                  label="Ander adres"
-                  onPress={() => {
-                    setStep('email');
-                    setCode('');
-                    setMsg(null);
-                  }}
-                  style={{ flex: 1 }}
-                />
-              </Row>
-            </>
-          )}
+          <Button label={busy ? 'Bezig…' : 'Inloggen met Google'} onPress={google} disabled={busy} />
+          <T size={12} color={C.muted} style={{ lineHeight: 17 }}>
+            Er opent een Google-venster om je account te kiezen. Heb je nog geen account bij de app, dan wordt het
+            aangemaakt. De app ziet alleen je naam en e-mailadres.
+          </T>
           {msg ? (
             <T size={13} weight="semibold" color={msg.bad ? C.warn : C.muted}>
               {msg.text}

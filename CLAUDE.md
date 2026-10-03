@@ -61,8 +61,12 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
     trigger zet `synced_at` (pull-cursor).
   - `src/logic/sync.ts` (pure, getest): snapshot met hashes van de laatst gesynchroniseerde versie; wat afwijkt = lokale
     wijziging → push; anders mag de server bijwerken. Eerste sync: profiel van de server, bibliotheek samengevoegd.
-  - `src/cloud.ts`: inloggen met e-mailcode (OTP; de Supabase-mailtemplates moeten `{{ .Token }}` bevatten), sessie
-    verversen, `syncNow` (pull → push, één tegelijk, veiligheidsstop bij massaal verwijderen). Opslag `fft-cloud-v1`.
+  - `src/cloud.ts`: inloggen met Google via `expo-web-browser` `openAuthSessionAsync` naar `/auth/v1/authorize`
+    (impliciete flow, sessie in het #-deel van `freakingfoodtracker://login`; scheme in app.config.js; die url staat bij
+    Supabase → URL Configuration; Google OAuth-client = type Web application met redirect `<project>/auth/v1/callback`).
+    E-mailcodes werken niet: de ingebouwde Supabase-mail stuurt alleen naar teamleden. Sessie verversen, `syncNow`
+    (pull → push, één tegelijk, veiligheidsstop bij massaal verwijderen). Opslag `fft-cloud-v1`.
+  - Supabase-project: `uhvxbppakfeaqzchyjbb` (eu-west-1). Publishable key alleen als `apikey`-header.
   - `App.tsx` `useAutoSync`: na laden, bij openen/sluiten van de app en 8 s na een wijziging. Scherm `CloudScreen`
     (route `cloud`, ook vanaf de onboarding).
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.

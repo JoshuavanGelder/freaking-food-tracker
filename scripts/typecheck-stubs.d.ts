@@ -51,3 +51,5 @@ declare module 'expo-image-manipulator' { const x: any; export = x; }
 declare module '@zxing/library' { const x: any; export = x; }
 declare module 'jpeg-js' { const x: any; export = x; }
 declare module 'expo-modules-core' { export function requireOptionalNativeModule<T = any>(name: string): T | null; }
+
+declare module 'expo-web-browser' { export function openAuthSessionAsync(url: string, redirectUrl?: string | null, o?: any): Promise<{ type: 'success'; url: string } | { type: 'cancel' | 'dismiss' | 'locked'; url?: undefined }>; }

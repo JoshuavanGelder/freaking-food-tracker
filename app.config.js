@@ -6,6 +6,8 @@ module.exports = {
   expo: {
     name: 'Freaking Food Tracker',
     slug: 'freaking-food-tracker',
+    // Voor inloggen met Google: Supabase stuurt terug naar freakingfoodtracker://login.
+    scheme: 'freakingfoodtracker',
     version: `0.1.${build}`,
     orientation: 'portrait',
     icon: './assets/icon.png',
