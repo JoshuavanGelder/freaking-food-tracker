@@ -6,6 +6,7 @@ import { useNav } from '../nav';
 import { useGoal } from '../useGoal';
 import { NEVO } from '../data/nevo';
 import { ExportSection } from './ExportSection';
+import { UpdateSection } from './UpdateCard';
 import { cloudConfigured, useCloudStatus } from '../cloud';
 import { C } from '../theme';
 import { Button, Card, Chip, Field, H1, MacroTile, Row, Screen, Segmented, T } from '../ui';
@@ -192,6 +193,13 @@ export function GoalsScreen() {
           </>
         ) : null}
         <ExportSection />
+      </Card>
+
+      <Card>
+        <T size={14} weight="semibold" color={C.muted}>
+          App-versie
+        </T>
+        <UpdateSection />
       </Card>
 
       <T size={11} color={C.muted} style={{ lineHeight: 16, paddingHorizontal: 4 }}>

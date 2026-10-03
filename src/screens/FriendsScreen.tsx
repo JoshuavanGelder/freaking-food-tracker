@@ -28,6 +28,7 @@ export const SHARE_LABELS: Record<keyof Share, { label: string; text: string }> 
   log: { label: 'Eetdagboek', text: 'wat je precies eet' },
   weight: { label: 'Gewicht', text: 'je gewichten en het verloop' },
   goals: { label: 'Doelen', text: 'je dagdoel, zodat ze je % zien' },
+  favorites: { label: 'Favorieten', text: 'je favoriete producten en maaltijden, om over te nemen' },
 };
 
 type Row_ = { friend: Friend; summary: FriendSummary | null };
@@ -231,7 +232,7 @@ export function FriendsScreen() {
             </Row>
           ))}
           <T size={12} color={C.muted}>
-            Je profiel (leeftijd, lengte) en je producten deel je nooit.
+            Je profiel (leeftijd, lengte) deel je nooit, en je overige producten ook niet.
           </T>
         </Card>
       ) : null}

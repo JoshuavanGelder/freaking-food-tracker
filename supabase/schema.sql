@@ -215,3 +215,32 @@ revoke all on function public.add_friend(text), public.remove_friend(uuid), publ
   public.friend_days(uuid, date, date), public.friend_entries(uuid, date), public.friend_weights(uuid, date) from public, anon;
 grant execute on function public.add_friend(text), public.remove_friend(uuid), public.friends(),
   public.friend_days(uuid, date, date), public.friend_entries(uuid, date), public.friend_weights(uuid, date) to authenticated;
+
+-- =====================================================================================================
+-- Favorieten van vrienden: producten en favoriete maaltijden die een vriend deelt.
+-- Nieuwe share-sleutel `favorites`; anders dan de andere staat die standaard UIT (ontbreekt = uit),
+-- zodat bestaande vrienden niet ineens favorieten zien die je daar nooit voor hebt vrijgegeven.
+-- =====================================================================================================
+
+create or replace function public.friend_favorites(friend uuid) returns json
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  lib jsonb;
+begin
+  if not public.fft_is_friend(friend)
+     or not coalesce((select (pr.share ->> 'favorites')::boolean from public.profiles pr where pr.user_id = friend), false) then
+    return json_build_object('foods', '[]'::json, 'meals', '[]'::json);
+  end if;
+  select l.data into lib from public.libraries l where l.user_id = friend;
+  return json_build_object(
+    'foods', coalesce((
+      select json_agg(lib -> 'foods' -> fid)
+        from jsonb_array_elements_text(coalesce(lib -> 'favorites', '[]'::jsonb)) as fid
+       where (lib -> 'foods') ? fid
+    ), '[]'::json),
+    'meals', coalesce(lib -> 'favMeals', '[]'::jsonb)::json
+  );
+end $$;
+
+revoke all on function public.friend_favorites(uuid) from public, anon;
+grant execute on function public.friend_favorites(uuid) to authenticated;

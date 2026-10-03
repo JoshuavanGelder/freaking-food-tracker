@@ -10,6 +10,7 @@ import { Icon } from '../icons';
 import { Bar, Card, H1, H2, HeartButton, IconButton, Ring, Row, Screen, T } from '../ui';
 import { MICROS, SALT_MAX, microTarget } from '../logic/micros';
 import { summarizeLog } from './MicrosScreen';
+import { UpdateBanner } from './UpdateCard';
 
 export function TodayScreen() {
   const { state, actions } = useApp();
@@ -51,6 +52,7 @@ export function TodayScreen() {
 
   return (
     <Screen withTabBar>
+      <UpdateBanner />
       <Row style={{ justifyContent: 'space-between' }}>
         <Row style={{ gap: 2, marginLeft: -12 }}>
           <IconButton icon="back" label="Vorige dag" onPress={() => nav.setDay(addDays(day, -1))} color={C.ink} />

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts src/logic/importer.test.ts src/logic/nevo.test.ts src/logic/micros.test.ts src/logic/exporter.test.ts src/logic/mine.test.ts src/logic/backup.test.ts src/logic/sync.test.ts src/logic/friends.test.ts",
+    "test": "node --experimental-strip-types --test src/logic/calc.test.ts src/logic/off.test.ts src/logic/importer.test.ts src/logic/nevo.test.ts src/logic/micros.test.ts src/logic/exporter.test.ts src/logic/mine.test.ts src/logic/backup.test.ts src/logic/sync.test.ts src/logic/friends.test.ts src/logic/update.test.ts",
     "typecheck": "tsc --noEmit",
     "test:scan": "node --experimental-strip-types --test src/logic/photoscan.test.ts"
   },
@@ -19,6 +19,7 @@
     "expo": "~57.0.0",
     "expo-camera": "*",
     "expo-clipboard": "*",
+    "expo-constants": "*",
     "expo-file-system": "*",
     "expo-font": "*",
     "expo-image-manipulator": "*",

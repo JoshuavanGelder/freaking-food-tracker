@@ -25,6 +25,7 @@ import { FavMealScreen } from './src/screens/FavMealScreen';
 import { CloudScreen } from './src/screens/CloudScreen';
 import { FriendScreen } from './src/screens/FriendScreen';
 import { isSignedIn, loadCloud, syncNow } from './src/cloud';
+import { checkForUpdate } from './src/update';
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -74,9 +75,21 @@ function useAutoSync() {
   }, [state, loaded, bridge]);
 }
 
+/** Kijkt bij het openen en bij terugkomen in de app of er een nieuwere APK klaarstaat (hooguit om de paar uur). */
+function useUpdateCheck() {
+  useEffect(() => {
+    checkForUpdate();
+    const sub = RNAppState.addEventListener('change', (st) => {
+      if (st === 'active') checkForUpdate();
+    });
+    return () => sub.remove();
+  }, []);
+}
+
 function Root() {
   const { state, loaded } = useApp();
   useAutoSync();
+  useUpdateCheck();
   const [stack, setStack] = useState<Route[]>([{ name: 'tabs' }]);
   const [tab, setTab] = useState<Tab>('today');
   const [day, setDay] = useState(() => dateKey(new Date()));

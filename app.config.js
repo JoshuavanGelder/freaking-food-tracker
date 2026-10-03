@@ -9,6 +9,8 @@ module.exports = {
     // Voor inloggen met Google: Supabase stuurt terug naar freakingfoodtracker://login.
     scheme: 'freakingfoodtracker',
     version: `0.1.${build}`,
+    // Voor de update-melding: het buildnummer van deze app (zie src/update.ts).
+    extra: { build },
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Friend, FriendDay, FriendEntry, friendDays, friendEntries, friendWeights, removeFriend, shares } from '../cloud';
+import { Friend, FriendDay, FriendEntry, friendDays, friendEntries, friendFavorites, friendWeights, removeFriend, shares } from '../cloud';
 import { addDays, dateKey, formatLong, formatShort, nl } from '../logic/calc';
-import { MEALS } from '../store';
+import { FriendFavorites, mealKcal } from '../logic/friends';
+import { amountText } from '../logic/off';
+import { MEALS, MealId, itemsKey, mealForNow, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
 import { C } from '../theme';
-import { BackHeader, Bar, Button, Card, IconButton, Row, Screen, T } from '../ui';
+import { BackHeader, Bar, Button, Card, Chip, HeartButton, IconButton, Row, Screen, T } from '../ui';
 
 /** Eén vriend: dagtotalen per dag, wat hij at (als hij dat deelt) en zijn gewicht. */
 export function FriendScreen({ friend }: { friend: Friend }) {
@@ -190,6 +192,8 @@ export function FriendScreen({ friend }: { friend: Friend }) {
         </Card>
       ) : null}
 
+      {shares(friend, 'favorites') ? <FavoritesCard friend={friend} name={name} /> : null}
+
       {confirm ? (
         <Card style={{ gap: 8 }}>
           <T size={14} style={{ lineHeight: 20 }}>
@@ -218,5 +222,152 @@ export function FriendScreen({ friend }: { friend: Friend }) {
         <Button small variant="ghost" label="Vriend verwijderen" onPress={() => setConfirm(true)} />
       )}
     </Screen>
+  );
+}
+
+/** Favoriete producten en maaltijden van een vriend: bekijken, aan een maaltijd van vandaag toevoegen of bewaren. */
+function FavoritesCard({ friend, name }: { friend: Friend; name: string }) {
+  const nav = useNav();
+  const { state, actions } = useApp();
+  const today = dateKey(new Date());
+  const [favs, setFavs] = useState<FriendFavorites | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [meal, setMeal] = useState<MealId>(mealForNow());
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    friendFavorites(friend.id)
+      .then((f) => alive && setFavs(f))
+      .catch((e: any) => alive && setError(e?.message ?? 'Laden lukte niet.'));
+    return () => {
+      alive = false;
+    };
+  }, [friend.id]);
+
+  const myMeals = new Set(state.favMeals.map((f) => itemsKey(f.items)));
+  const empty = favs && !favs.foods.length && !favs.meals.length;
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <T size={14} weight="semibold" color={C.muted}>
+        Favorieten van {name}
+      </T>
+
+      {!favs && !error ? <ActivityIndicator color={C.accent} /> : null}
+      {error ? (
+        <T size={13} color={C.warn}>
+          {error}
+        </T>
+      ) : null}
+      {empty ? (
+        <T size={13} color={C.muted}>
+          {name} heeft nog geen favorieten, of ze zijn nog niet gesynchroniseerd.
+        </T>
+      ) : null}
+
+      {favs && !empty ? (
+        <>
+          <View style={{ gap: 6 }}>
+            <T size={12} color={C.muted}>
+              Toevoegen aan (vandaag):
+            </T>
+            <Row style={{ gap: 6, flexWrap: 'wrap' }}>
+              {MEALS.map((m) => (
+                <Chip
+                  key={m.id}
+                  label={m.label}
+                  on={meal === m.id}
+                  onPress={() => {
+                    setMeal(m.id);
+                    setDone(null);
+                  }}
+                />
+              ))}
+            </Row>
+          </View>
+
+          {favs.meals.length ? (
+            <View style={{ gap: 8 }}>
+              <T size={13} weight="bold">
+                Maaltijden
+              </T>
+              {favs.meals.map((fm) => (
+                <View key={fm.id + fm.name} style={{ gap: 6 }}>
+                  <Row style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <T size={15} weight="semibold">
+                        {fm.name}
+                      </T>
+                      <T size={12} color={C.muted}>
+                        {fm.items.length} {fm.items.length === 1 ? 'product' : 'producten'} · {nl(mealKcal(fm.items))} kcal
+                      </T>
+                    </View>
+                    <HeartButton
+                      on={myMeals.has(itemsKey(fm.items))}
+                      label={myMeals.has(itemsKey(fm.items)) ? 'Uit mijn favorieten halen' : 'Bewaren in mijn favoriete maaltijden'}
+                      onPress={() => actions.toggleFavMeal(fm.name, fm.items)}
+                    />
+                    <Button
+                      small
+                      variant="outline"
+                      label="Toevoegen"
+                      onPress={() => {
+                        actions.addFavMealTo({ id: fm.id, name: fm.name, items: fm.items }, today, meal);
+                        setDone(`${fm.name} staat bij ${mealLabel(meal)}.`);
+                      }}
+                    />
+                  </Row>
+                  <T size={12} color={C.muted}>
+                    {fm.items.map((it) => `${it.food.name} ${amountText(it.food, it.grams)}`).join(' · ')}
+                  </T>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {favs.foods.length ? (
+            <View style={{ gap: 8 }}>
+              <T size={13} weight="bold">
+                Producten
+              </T>
+              {favs.foods.map((f) => (
+                <Row key={f.id} style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <T size={15} weight="semibold" numberOfLines={2}>
+                      {f.name}
+                      {f.brand ? ` (${f.brand})` : ''}
+                    </T>
+                    <T size={12} color={C.muted}>
+                      {nl(f.per.kcal)} kcal per 100 {f.unit === 'ml' ? 'ml' : 'g'}
+                    </T>
+                  </View>
+                  <HeartButton
+                    on={state.favorites.includes(f.id)}
+                    label={state.favorites.includes(f.id) ? 'Uit mijn favorieten halen' : 'Bewaren in mijn favorieten'}
+                    onPress={() => actions.toggleFavorite(f)}
+                  />
+                  <Button
+                    small
+                    variant="outline"
+                    label="Toevoegen"
+                    onPress={() => {
+                      nav.setDay(today);
+                      nav.push({ name: 'product', food: f, meal, date: today });
+                    }}
+                  />
+                </Row>
+              ))}
+            </View>
+          ) : null}
+
+          {done ? (
+            <T size={13} weight="semibold" color={C.accent}>
+              {done}
+            </T>
+          ) : null}
+        </>
+      ) : null}
+    </Card>
   );
 }

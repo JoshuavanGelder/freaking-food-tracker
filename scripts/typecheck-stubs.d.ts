@@ -18,6 +18,7 @@ declare module 'react' {
 declare module 'react/jsx-runtime' { export const jsx: any; export const jsxs: any; export const Fragment: any; }
 declare namespace JSX { interface IntrinsicElements { [k: string]: any } interface Element {} interface ElementChildrenAttribute { children: {} } }
 declare module 'react-native' {
+  export const Linking: { openURL(url: string): Promise<any> };
   export const Share: { share(c: { message: string; title?: string }): Promise<any> };
   export const AppState: { addEventListener(type: 'change', cb: (state: 'active' | 'background' | 'inactive' | 'unknown' | 'extension') => void): { remove(): void } };
   export const View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
@@ -54,3 +55,4 @@ declare module 'jpeg-js' { const x: any; export = x; }
 declare module 'expo-modules-core' { export function requireOptionalNativeModule<T = any>(name: string): T | null; }
 
 declare module 'expo-web-browser' { export function openAuthSessionAsync(url: string, redirectUrl?: string | null, o?: any): Promise<{ type: 'success'; url: string } | { type: 'cancel' | 'dismiss' | 'locked'; url?: undefined }>; }
+declare module 'expo-constants' { const Constants: { expoConfig?: { extra?: Record<string, unknown> } | null }; export default Constants; }

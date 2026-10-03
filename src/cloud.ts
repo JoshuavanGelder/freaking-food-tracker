@@ -22,6 +22,7 @@ import {
   stableStringify,
 } from './logic/sync';
 import { computeGoal, dailyWeights, macroGrams, splitFor } from './logic/calc';
+import { FriendFavorites, parseFriendFavorites } from './logic/friends';
 
 export const cloudConfigured = !!(SUPABASE_URL && SUPABASE_KEY);
 
@@ -388,8 +389,8 @@ export function targetOf(st: SyncState): { kcal: number; e: number; k: number; v
 // ---------- vrienden ----------
 // Alles via databasefuncties (supabase/schema.sql, fase 3): die geven alleen terug wat de ander deelt.
 
-export type Share = { totals: boolean; log: boolean; weight: boolean; goals: boolean };
-export const SHARE_KEYS: (keyof Share)[] = ['totals', 'log', 'weight', 'goals'];
+export type Share = { totals: boolean; log: boolean; weight: boolean; goals: boolean; favorites: boolean };
+export const SHARE_KEYS: (keyof Share)[] = ['totals', 'log', 'weight', 'goals', 'favorites'];
 export type Target = { kcal: number; e: number; k: number; v: number; fiber: number };
 export type Friend = { id: string; name: string; share: Partial<Share>; target: Target | null; since: string };
 export type FriendDay = { date: string; kcal: number; e: number; k: number; v: number; fiber: number; items: number };
@@ -422,7 +423,7 @@ export async function myFriendSettings(): Promise<{ code: string; share: Share }
   );
   if (!rows.length) throw new CloudError('Je profiel staat nog niet in de cloud. Synchroniseer eerst.');
   const sh = rows[0].share ?? {};
-  return { code: rows[0].invite_code, share: { totals: sh.totals !== false, log: sh.log !== false, weight: sh.weight !== false, goals: sh.goals !== false } };
+  return { code: rows[0].invite_code, share: { totals: sh.totals !== false, log: sh.log !== false, weight: sh.weight !== false, goals: sh.goals !== false, favorites: sh.favorites === true } };
 }
 
 export async function setShare(share: Share): Promise<void> {
@@ -437,8 +438,10 @@ export const friendDays = (id: string, from: string, to: string) => rpc<FriendDa
 export const friendEntries = (id: string, date: string) => rpc<FriendEntry[]>('friend_entries', { friend: id, d: date });
 export const friendWeights = (id: string, from: string) => rpc<{ date: string; kg: number }[]>('friend_weights', { friend: id, d_from: from });
 
-/** Leest of iemand iets deelt (ontbreekt = aan). */
-export const shares = (f: Friend, k: keyof Share) => f.share[k] !== false;
+export const friendFavorites = async (id: string): Promise<FriendFavorites> => parseFriendFavorites(await rpc<unknown>('friend_favorites', { friend: id }));
+
+/** Leest of iemand iets deelt (ontbreekt = aan, behalve favorieten: die staan standaard uit). */
+export const shares = (f: Friend, k: keyof Share) => (k === 'favorites' ? f.share[k] === true : f.share[k] !== false);
 
 export function isSignedIn(): boolean {
   return !!data.session;

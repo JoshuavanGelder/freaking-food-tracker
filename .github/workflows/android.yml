@@ -121,15 +121,23 @@ jobs:
             echo "::warning title=native::zxing-cpp ontbreekt in de APK"
           fi
 
+      - name: Releasetekst maken
+        if: github.ref == 'refs/heads/main'
+        run: |
+          {
+            git log -1 --pretty=%s
+            echo
+            echo "Nieuwe versie van Freaking Food Tracker."
+            echo "Open dit op je Android-telefoon, tik op het .apk-bestand hieronder en installeer het."
+            echo "Commit: ${{ github.sha }}"
+          } > release-notes.md
+
       - name: Release maken
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Freaking Food Tracker ${{ github.run_number }}
-          body: |
-            Nieuwe versie van Freaking Food Tracker.
-            Open dit op je Android-telefoon, tik op het .apk-bestand hieronder en installeer het.
-            Commit: ${{ github.sha }}
+          body_path: release-notes.md
           files: freaking-food-tracker-${{ github.run_number }}.apk
           make_latest: true

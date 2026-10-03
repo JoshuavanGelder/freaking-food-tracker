@@ -72,3 +72,47 @@ export function cleanCode(input: string): string | null {
   const c = input.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
   return /^[0-9a-f]{8}$/.test(c) ? c : null;
 }
+
+// ---------- favorieten van een vriend ----------
+// Wat een vriend deelt komt uit zijn bibliotheek in de cloud; we controleren de vorm voordat de app het gebruikt.
+
+import type { Food } from './off';
+
+export type FriendFavMeal = { id: string; name: string; items: { food: Food; grams: number }[] };
+export type FriendFavorites = { foods: Food[]; meals: FriendFavMeal[] };
+
+const SOURCES = ['off', 'eigen', 'nevo'];
+const num = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+
+/** Eén product uit de cloud; null als het er niet uitziet als een product. */
+export function cleanFood(x: any): Food | null {
+  if (!x || typeof x !== 'object') return null;
+  if (typeof x.id !== 'string' || !x.id || x.id.length > 80) return null;
+  if (typeof x.name !== 'string' || !x.name.trim() || x.name.length > 160) return null;
+  const per = x.per;
+  if (!per || typeof per !== 'object' || !num(per.kcal) || per.kcal < 0 || per.kcal > 1000) return null;
+  for (const k of ['e', 'k', 'v']) if (!num(per[k]) || per[k] < 0 || per[k] > 1000) return null;
+  const f: Food = { ...x, per, source: SOURCES.includes(x.source) ? x.source : 'eigen' };
+  if (f.brand != null && typeof f.brand !== 'string') delete f.brand;
+  for (const k of ['servingG', 'packageG'] as const) if (f[k] != null && !(num(f[k]) && f[k]! > 0 && f[k]! < 100000)) delete f[k];
+  if (f.servingLabel != null && typeof f.servingLabel !== 'string') delete f.servingLabel;
+  if (f.unit != null && f.unit !== 'g' && f.unit !== 'ml') delete f.unit;
+  return f;
+}
+
+/** Het antwoord van `friend_favorites` opschonen: kapotte of vreemde items vallen weg. */
+export function parseFriendFavorites(raw: unknown): FriendFavorites {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as { foods?: unknown; meals?: unknown };
+  const foods = (Array.isArray(r.foods) ? r.foods : []).map(cleanFood).filter((f): f is Food => !!f);
+  const meals: FriendFavMeal[] = [];
+  for (const m of Array.isArray(r.meals) ? (r.meals as any[]) : []) {
+    if (!m || typeof m.name !== 'string' || !m.name.trim() || !Array.isArray(m.items)) continue;
+    const items = m.items
+      .map((it: any) => ({ food: cleanFood(it?.food), grams: it?.grams }))
+      .filter((it: { food: Food | null; grams: unknown }) => it.food && num(it.grams) && it.grams > 0 && it.grams < 100000) as { food: Food; grams: number }[];
+    if (items.length) meals.push({ id: typeof m.id === 'string' ? m.id : m.name, name: m.name.trim().slice(0, 80), items });
+  }
+  return { foods, meals };
+}
+
+export const mealKcal = (items: { food: Food; grams: number }[]) => items.reduce((s, it) => s + (it.food.per.kcal * it.grams) / 100, 0);

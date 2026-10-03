@@ -69,13 +69,19 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   - Supabase-project: `uhvxbppakfeaqzchyjbb` (eu-west-1). Publishable key alleen als `apikey`-header.
   - Vrienden (fase 3): tabel `friendships` (twee rijen per vriendschap) + security-definer-functies `add_friend(code)`,
     `remove_friend`, `friends()`, `friend_days`, `friend_entries`, `friend_weights` die alleen teruggeven wat de ander deelt
-    (`profiles.share`: totals, log, weight, goals; ontbreekt = aan). `profiles.target` = dagdoel, door `syncNow` verstuurd
+    (`profiles.share`: totals, log, weight, goals; ontbreekt = aan) en `friend_favorites` (sleutel `favorites`; ontbreekt = **uit**). `profiles.target` = dagdoel, door `syncNow` verstuurd
     (`targetOf`). App: `src/cloud.ts` (rpc-aanroepen), `src/logic/friends.ts` (samenvatting, code), `FriendsScreen`
-    (code delen/invullen, lijst, wat je deelt) en `FriendScreen` (route `friend`).
+    (code delen/invullen, lijst, wat je deelt) en `FriendScreen` (route `friend`; onderaan `FavoritesCard`: favoriete producten
+    en maaltijden van de vriend, kiezen aan welke maaltijd van vandaag, toevoegen of als eigen favoriet bewaren;
+    `parseFriendFavorites` in `friends.ts` controleert wat uit de cloud komt).
   - Database-wijzigingen via de Supabase-koppeling worden bij Joshua geannuleerd: geef hem de SQL om in de SQL Editor te
     plakken; lezen/controleren via de koppeling werkt wel.
   - `App.tsx` `useAutoSync`: na laden, bij openen/sluiten van de app en 8 s na een wijziging. Scherm `CloudScreen`
     (route `cloud`, ook vanaf de onboarding).
+- Update-melding: `src/update.ts` (hook + opslag `fft-update-v1`) kijkt bij openen/terugkomen (hooguit elke 3 uur) naar
+  `releases/latest` op GitHub (alleen als de repo openbaar is; anders stil), vergelijkt het buildnummer (`extra.build` in
+  app.config.js = `GITHUB_RUN_NUMBER`, tag `build-N`) en toont `UpdateBanner` op Vandaag en `UpdateSection` op Doelen.
+  Pure logica in `src/logic/update.ts`. De releasetekst begint met de commit-titel (workflow maakt `release-notes.md`).
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).
 

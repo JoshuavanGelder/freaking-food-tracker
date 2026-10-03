@@ -50,3 +50,35 @@ test('vriendcode opmaken en controleren', () => {
   assert.equal(cleanCode('xyz'), null);
   assert.equal(cleanCode('g1b2c3d4'), null);
 });
+
+import { cleanFood, mealKcal, parseFriendFavorites } from './friends.ts';
+
+const food = (over: Record<string, unknown> = {}) => ({
+  id: 'nevo:1', name: 'Appel', per: { kcal: 52, e: 0.3, k: 11, v: 0.2 }, source: 'nevo', ...over,
+});
+
+test('favorieten van een vriend: goede producten blijven, rommel valt weg', () => {
+  const r = parseFriendFavorites({
+    foods: [food(), { id: 'x', name: 'Zonder waarden' }, null, food({ id: 'eigen:2', name: 'Yoghurt', per: { kcal: 'veel', e: 1, k: 1, v: 1 } })],
+    meals: [
+      { id: 'm1', name: ' Ontbijt ', items: [{ food: food(), grams: 150 }, { food: null, grams: 10 }, { food: food(), grams: -5 }] },
+      { id: 'm2', name: 'Leeg', items: [] },
+      { name: 5, items: [] },
+    ],
+  });
+  assert.equal(r.foods.length, 1);
+  assert.equal(r.meals.length, 1);
+  assert.equal(r.meals[0].name, 'Ontbijt');
+  assert.equal(r.meals[0].items.length, 1);
+  assert.equal(Math.round(mealKcal(r.meals[0].items)), 78);
+});
+
+test('favorieten: onbekende bron en vreemde velden worden rechtgezet', () => {
+  const f = cleanFood(food({ source: 'hack', unit: 'liter', servingG: -3, brand: 7 }))!;
+  assert.equal(f.source, 'eigen');
+  assert.equal(f.unit, undefined);
+  assert.equal(f.servingG, undefined);
+  assert.equal(f.brand, undefined);
+  assert.deepEqual(parseFriendFavorites(null), { foods: [], meals: [] });
+  assert.deepEqual(parseFriendFavorites('rommel'), { foods: [], meals: [] });
+});
