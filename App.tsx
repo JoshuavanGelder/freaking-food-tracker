@@ -23,6 +23,7 @@ import { ImportScreen } from './src/screens/ImportScreen';
 import { MicrosScreen } from './src/screens/MicrosScreen';
 import { FavMealScreen } from './src/screens/FavMealScreen';
 import { CloudScreen } from './src/screens/CloudScreen';
+import { FriendScreen } from './src/screens/FriendScreen';
 import { isSignedIn, loadCloud, syncNow } from './src/cloud';
 
 export default function App() {
@@ -183,6 +184,9 @@ function Root() {
         break;
       case 'cloud':
         screen = <CloudScreen key={stack.length} />;
+        break;
+      case 'friend':
+        screen = <FriendScreen key={`${stack.length}-${route.friend.id}`} friend={route.friend} />;
         break;
       case 'micros':
         screen = <MicrosScreen key={stack.length} date={route.date} />;

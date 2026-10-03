@@ -93,3 +93,125 @@ create policy "eigen rijen" on public.weights for all to authenticated
 -- Niet-ingelogde bezoekers (alleen de publieke sleutel) mogen niets.
 revoke all on public.profiles, public.libraries, public.entries, public.weights from anon;
 grant select, insert, update, delete on public.profiles, public.libraries, public.entries, public.weights to authenticated;
+
+-- =====================================================================================================
+-- Fase 3: vrienden
+-- Vriendschap = twee rijen (A→B en B→A), aangemaakt met add_friend(code). Vrienden lezen elkaars gegevens
+-- alleen via de functies hieronder (security definer), en alleen wat de ander deelt (profiles.share).
+-- share-sleutels (ontbreekt = aan): totals (kcal/macro's per dag), log (wat je at), weight, goals (doelen + dagdoel).
+-- =====================================================================================================
+
+alter table public.profiles add column if not exists target jsonb;  -- dagdoel {kcal,e,k,v,fiber}, door de app berekend
+alter table public.profiles alter column share set default '{"totals": true, "log": true, "weight": true, "goals": true}'::jsonb;
+
+create table if not exists public.friendships (
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  friend_id  uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, friend_id),
+  check (user_id <> friend_id)
+);
+alter table public.friendships enable row level security;
+drop policy if exists "eigen vriendschappen" on public.friendships;
+create policy "eigen vriendschappen" on public.friendships for select to authenticated using (user_id = (select auth.uid()));
+revoke all on public.friendships from anon;
+grant select on public.friendships to authenticated;
+
+-- hulpfuncties (alleen intern)
+create or replace function public.fft_shares(p uuid, k text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select (pr.share ->> k)::boolean from public.profiles pr where pr.user_id = p), true)
+$$;
+create or replace function public.fft_is_friend(f uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.friendships fr where fr.user_id = (select auth.uid()) and fr.friend_id = f)
+$$;
+revoke all on function public.fft_shares(uuid, text) from public, anon, authenticated;
+revoke all on function public.fft_is_friend(uuid) from public, anon, authenticated;
+
+-- vriend toevoegen met zijn code
+create or replace function public.add_friend(code text) returns json
+language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := (select auth.uid());
+  other uuid;
+  other_name text;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  select pr.user_id, pr.name into other, other_name
+    from public.profiles pr where pr.invite_code = lower(regexp_replace(code, '[^a-zA-Z0-9]', '', 'g'));
+  if other is null then raise exception 'code_not_found'; end if;
+  if other = me then raise exception 'own_code'; end if;
+  insert into public.friendships (user_id, friend_id) values (me, other), (other, me) on conflict do nothing;
+  return json_build_object('id', other, 'name', other_name);
+end $$;
+
+create or replace function public.remove_friend(friend uuid) returns void
+language sql security definer set search_path = '' as $$
+  delete from public.friendships
+   where (user_id = (select auth.uid()) and friend_id = friend)
+      or (user_id = friend and friend_id = (select auth.uid()))
+$$;
+
+-- jouw vrienden, met wat ze delen
+create or replace function public.friends()
+returns table (id uuid, name text, share jsonb, target jsonb, since timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select pr.user_id, pr.name, coalesce(pr.share, '{}'::jsonb),
+         case when public.fft_shares(pr.user_id, 'goals') then pr.target end,
+         fr.created_at
+    from public.friendships fr
+    join public.profiles pr on pr.user_id = fr.friend_id
+   where fr.user_id = (select auth.uid())
+   order by fr.created_at
+$$;
+
+-- dagtotalen van een vriend
+create or replace function public.friend_days(friend uuid, d_from date, d_to date)
+returns table (date date, kcal double precision, e double precision, k double precision, v double precision, fiber double precision, items integer)
+language sql stable security definer set search_path = '' as $$
+  select en.date,
+         sum(coalesce((en.food -> 'per' ->> 'kcal')::double precision, 0) * en.grams / 100),
+         sum(coalesce((en.food -> 'per' ->> 'e')::double precision, 0) * en.grams / 100),
+         sum(coalesce((en.food -> 'per' ->> 'k')::double precision, 0) * en.grams / 100),
+         sum(coalesce((en.food -> 'per' ->> 'v')::double precision, 0) * en.grams / 100),
+         sum(coalesce((en.food -> 'per' ->> 'fiber')::double precision, 0) * en.grams / 100),
+         count(*)::integer
+    from public.entries en
+   where en.user_id = friend and not en.deleted and en.date between d_from and d_to
+     and public.fft_is_friend(friend)
+     and (public.fft_shares(friend, 'totals') or public.fft_shares(friend, 'log'))
+   group by en.date
+   order by en.date
+$$;
+
+-- wat een vriend op een dag at
+create or replace function public.friend_entries(friend uuid, d date)
+returns table (meal text, name text, brand text, grams double precision, unit text, kcal double precision, e double precision, k double precision, v double precision)
+language sql stable security definer set search_path = '' as $$
+  select en.meal, en.food ->> 'name', en.food ->> 'brand', en.grams, coalesce(en.food ->> 'unit', 'g'),
+         coalesce((en.food -> 'per' ->> 'kcal')::double precision, 0) * en.grams / 100,
+         coalesce((en.food -> 'per' ->> 'e')::double precision, 0) * en.grams / 100,
+         coalesce((en.food -> 'per' ->> 'k')::double precision, 0) * en.grams / 100,
+         coalesce((en.food -> 'per' ->> 'v')::double precision, 0) * en.grams / 100
+    from public.entries en
+   where en.user_id = friend and not en.deleted and en.date = d
+     and public.fft_is_friend(friend) and public.fft_shares(friend, 'log')
+   order by array_position(array['ontbijt', 'lunch', 'diner', 'snacks'], en.meal), en.synced_at
+$$;
+
+-- gewichten van een vriend
+create or replace function public.friend_weights(friend uuid, d_from date)
+returns table (date date, kg double precision)
+language sql stable security definer set search_path = '' as $$
+  select w.date, w.kg
+    from public.weights w
+   where w.user_id = friend and not w.deleted and w.kg is not null and w.date >= d_from
+     and public.fft_is_friend(friend) and public.fft_shares(friend, 'weight')
+   order by w.date
+$$;
+
+revoke all on function public.add_friend(text), public.remove_friend(uuid), public.friends(),
+  public.friend_days(uuid, date, date), public.friend_entries(uuid, date), public.friend_weights(uuid, date) from public, anon;
+grant execute on function public.add_friend(text), public.remove_friend(uuid), public.friends(),
+  public.friend_days(uuid, date, date), public.friend_entries(uuid, date), public.friend_weights(uuid, date) to authenticated;

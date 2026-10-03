@@ -19,7 +19,9 @@ import {
   applyPull,
   isEmptyPlan,
   planPush,
+  stableStringify,
 } from './logic/sync';
+import { computeGoal, dailyWeights, macroGrams, splitFor } from './logic/calc';
 
 export const cloudConfigured = !!(SUPABASE_URL && SUPABASE_KEY);
 
@@ -31,6 +33,8 @@ type CloudData = {
   snap: SyncSnapshot;
   cursor: { entries: string; weights: string };
   lastSync: string | null;
+  /** Hash van het laatst verstuurde dagdoel (voor vrienden). */
+  targetHash: string;
 };
 
 export type CloudStatus = {
@@ -43,7 +47,7 @@ export type CloudStatus = {
 };
 
 const KEY = 'fft-cloud-v1';
-const EMPTY: CloudData = { session: null, name: '', snap: EMPTY_SNAPSHOT, cursor: { entries: '', weights: '' }, lastSync: null };
+const EMPTY: CloudData = { session: null, name: '', snap: EMPTY_SNAPSHOT, cursor: { entries: '', weights: '' }, lastSync: null, targetHash: '' };
 
 let data: CloudData = EMPTY;
 let status: CloudStatus = { ready: false, email: null, name: '', syncing: false, lastSync: null, error: null };
@@ -98,9 +102,7 @@ class CloudError extends Error {
 function dutchError(status: number, body: any): string {
   const msg: string = String(body?.msg ?? body?.message ?? body?.error_description ?? body?.error ?? '');
   const code: string = String(body?.error_code ?? body?.code ?? '');
-  if (code === 'otp_expired' || /expired|invalid/i.test(msg)) return 'De code klopt niet of is verlopen. Vraag een nieuwe aan.';
-  if (status === 429 || code === 'over_email_send_rate_limit') return 'Even te veel pogingen. Wacht een paar minuten en probeer het opnieuw.';
-  if (/email/i.test(msg) && /valid|format/i.test(msg)) return 'Dit e-mailadres klopt niet.';
+  if (status === 429) return 'Even te veel pogingen. Wacht een paar minuten en probeer het opnieuw.';
   if (code === '42P01' || /relation .* does not exist/i.test(msg)) return 'De database is nog niet ingericht (schema.sql ontbreekt).';
   if (status === 401 || status === 403) return 'Je bent uitgelogd. Log opnieuw in.';
   return `Er ging iets mis bij de server (${status}${msg ? `: ${msg}` : ''}).`;
@@ -352,6 +354,13 @@ export function syncNow(bridge: SyncBridge): Promise<void> {
           await push(s, plan);
           data = { ...data, snap: afterPush(data.snap, plan) };
         }
+        // Dagdoel voor vrienden: alleen versturen als het veranderd is en het profiel in de cloud staat.
+        const target = targetOf(state);
+        const th = target ? stableStringify(target) : '';
+        if (target && th !== data.targetHash && data.snap.metaMs > 0) {
+          await call(`/rest/v1/profiles?user_id=eq.${s.userId}`, { method: 'PATCH', token: s.accessToken, prefer: 'return=minimal', body: { target } });
+          data = { ...data, targetHash: th };
+        }
         data = { ...data, lastSync: new Date().toISOString() };
         await save();
         emit({ lastSync: data.lastSync, name: data.name, error: null });
@@ -365,6 +374,71 @@ export function syncNow(bridge: SyncBridge): Promise<void> {
   })();
   return running;
 }
+
+/** Het dagdoel zoals de app het toont (kcal en macro's in gram, vezels). */
+export function targetOf(st: SyncState): { kcal: number; e: number; k: number; v: number; fiber: number } | null {
+  if (!st.profile) return null;
+  const w = dailyWeights(st.weights);
+  const weight = w.length ? w[w.length - 1].kg : 75;
+  const kcal = computeGoal(st.profile, weight, st.goals).goal;
+  const g = macroGrams(kcal, splitFor(st.goals));
+  return { kcal: Math.round(kcal), e: Math.round(g.e), k: Math.round(g.k), v: Math.round(g.v), fiber: st.goals.fiberGoal || 30 };
+}
+
+// ---------- vrienden ----------
+// Alles via databasefuncties (supabase/schema.sql, fase 3): die geven alleen terug wat de ander deelt.
+
+export type Share = { totals: boolean; log: boolean; weight: boolean; goals: boolean };
+export const SHARE_KEYS: (keyof Share)[] = ['totals', 'log', 'weight', 'goals'];
+export type Target = { kcal: number; e: number; k: number; v: number; fiber: number };
+export type Friend = { id: string; name: string; share: Partial<Share>; target: Target | null; since: string };
+export type FriendDay = { date: string; kcal: number; e: number; k: number; v: number; fiber: number; items: number };
+export type FriendEntry = { meal: string; name: string; brand: string | null; grams: number; unit: string; kcal: number; e: number; k: number; v: number };
+
+function friendError(e: unknown): never {
+  const m = e instanceof Error ? e.message : String(e);
+  if (/code_not_found/.test(m)) throw new CloudError('Deze code bestaat niet. Kijk of je hem goed hebt overgenomen.');
+  if (/own_code/.test(m)) throw new CloudError('Dit is je eigen code. Vraag je vriend om zijn code.');
+  if (/not_signed_in/.test(m)) throw new CloudError('Je bent niet ingelogd.');
+  if (/Could not find the function|PGRST202/.test(m)) throw new CloudError('De vriendenfunctie staat nog niet in de database.');
+  throw e instanceof Error ? e : new CloudError(m);
+}
+
+async function rpc<R>(fn: string, body: Record<string, unknown> = {}): Promise<R> {
+  const s = await validSession();
+  try {
+    return await call(`/rest/v1/rpc/${fn}`, { method: 'POST', token: s.accessToken, body });
+  } catch (e) {
+    friendError(e);
+  }
+}
+
+/** Je eigen vriendcode en wat je deelt. */
+export async function myFriendSettings(): Promise<{ code: string; share: Share }> {
+  const s = await validSession();
+  const rows: { invite_code: string; share: Partial<Share> | null }[] = await call(
+    `/rest/v1/profiles?select=invite_code,share&user_id=eq.${s.userId}`,
+    { token: s.accessToken },
+  );
+  if (!rows.length) throw new CloudError('Je profiel staat nog niet in de cloud. Synchroniseer eerst.');
+  const sh = rows[0].share ?? {};
+  return { code: rows[0].invite_code, share: { totals: sh.totals !== false, log: sh.log !== false, weight: sh.weight !== false, goals: sh.goals !== false } };
+}
+
+export async function setShare(share: Share): Promise<void> {
+  const s = await validSession();
+  await call(`/rest/v1/profiles?user_id=eq.${s.userId}`, { method: 'PATCH', token: s.accessToken, prefer: 'return=minimal', body: { share } });
+}
+
+export const addFriend = (code: string) => rpc<{ id: string; name: string }>('add_friend', { code });
+export const removeFriend = (id: string) => rpc<null>('remove_friend', { friend: id });
+export const listFriends = () => rpc<Friend[]>('friends');
+export const friendDays = (id: string, from: string, to: string) => rpc<FriendDay[]>('friend_days', { friend: id, d_from: from, d_to: to });
+export const friendEntries = (id: string, date: string) => rpc<FriendEntry[]>('friend_entries', { friend: id, d: date });
+export const friendWeights = (id: string, from: string) => rpc<{ date: string; kg: number }[]>('friend_weights', { friend: id, d_from: from });
+
+/** Leest of iemand iets deelt (ontbreekt = aan). */
+export const shares = (f: Friend, k: keyof Share) => f.share[k] !== false;
 
 export function isSignedIn(): boolean {
   return !!data.session;

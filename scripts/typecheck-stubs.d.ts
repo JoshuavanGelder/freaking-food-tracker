@@ -18,6 +18,7 @@ declare module 'react' {
 declare module 'react/jsx-runtime' { export const jsx: any; export const jsxs: any; export const Fragment: any; }
 declare namespace JSX { interface IntrinsicElements { [k: string]: any } interface Element {} interface ElementChildrenAttribute { children: {} } }
 declare module 'react-native' {
+  export const Share: { share(c: { message: string; title?: string }): Promise<any> };
   export const AppState: { addEventListener(type: 'change', cb: (state: 'active' | 'background' | 'inactive' | 'unknown' | 'extension') => void): { remove(): void } };
   export const View: any, Text: any, Pressable: any, ScrollView: any, TextInput: any, ActivityIndicator: any, BackHandler: any, Keyboard: any;
   export const StyleSheet: { create<T>(s: T): T; absoluteFill: any };

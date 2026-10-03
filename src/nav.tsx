@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import type { Food } from './logic/off';
+import type { Friend } from './cloud';
 import type { MealId } from './store';
 
 export type Tab = 'today' | 'weight' | 'friends' | 'goals';
@@ -14,6 +15,7 @@ export type Route =
   | { name: 'profile' }
   | { name: 'import' }
   | { name: 'cloud' }
+  | { name: 'friend'; friend: Friend }
   | { name: 'micros'; date: string };
 
 export type Nav = {

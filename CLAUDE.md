@@ -33,7 +33,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
 
 ## Architectuur
 - `App.tsx`: fonts, AppProvider, eigen route-stack (geen react-navigation), tabs Vandaag/Gewicht/Vrienden/Doelen.
-- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | cloud | micros | favmeal`. `nav.pickFor` = id van de
+- `src/nav.tsx`: routes `tabs | add | scan | product | manual | profile | import | cloud | friend | micros | favmeal`. `nav.pickFor` = id van de
   favoriete maaltijd waaraan producten worden toegevoegd (zoeken/scannen/product werken dan als kiezer, `nav.popTo('favmeal')`).
 - `src/store.tsx`: state in AsyncStorage (`fft-state-v1`): profile, goals, log (LogEntry {id,date,meal,food,grams};
   het hele `Food` wordt in de entry gekopieerd), weights, foods, favorites, recent, lastPortion, favMeals, imports.
@@ -67,6 +67,13 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
     E-mailcodes werken niet: de ingebouwde Supabase-mail stuurt alleen naar teamleden. Sessie verversen, `syncNow`
     (pull → push, één tegelijk, veiligheidsstop bij massaal verwijderen). Opslag `fft-cloud-v1`.
   - Supabase-project: `uhvxbppakfeaqzchyjbb` (eu-west-1). Publishable key alleen als `apikey`-header.
+  - Vrienden (fase 3): tabel `friendships` (twee rijen per vriendschap) + security-definer-functies `add_friend(code)`,
+    `remove_friend`, `friends()`, `friend_days`, `friend_entries`, `friend_weights` die alleen teruggeven wat de ander deelt
+    (`profiles.share`: totals, log, weight, goals; ontbreekt = aan). `profiles.target` = dagdoel, door `syncNow` verstuurd
+    (`targetOf`). App: `src/cloud.ts` (rpc-aanroepen), `src/logic/friends.ts` (samenvatting, code), `FriendsScreen`
+    (code delen/invullen, lijst, wat je deelt) en `FriendScreen` (route `friend`).
+  - Database-wijzigingen via de Supabase-koppeling worden bij Joshua geannuleerd: geef hem de SQL om in de SQL Editor te
+    plakken; lezen/controleren via de koppeling werkt wel.
   - `App.tsx` `useAutoSync`: na laden, bij openen/sluiten van de app en 8 s na een wijziging. Scherm `CloudScreen`
     (route `cloud`, ook vanaf de onboarding).
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
