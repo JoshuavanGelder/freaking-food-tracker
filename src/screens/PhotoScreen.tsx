@@ -1,8 +1,8 @@
-// Fotoherkenning: foto maken of kiezen uit de galerij, de AI laat zien wat er op ligt met geschatte grammen,
-// en jij keurt het goed ("Dit zie ik") voordat het in je dagboek komt. Voedingswaarden komen uit NEVO
+// AI-herkenning: foto maken, kiezen uit de galerij of gewoon beschrijven wat je at ("2 kiwi's en een banaan").
+// De AI laat zien wat het is met (geschatte) grammen, en jij keurt het goed ("Dit zie ik") voordat het in je dagboek komt. Voedingswaarden komen uit NEVO
 // en je eigen producten; alleen als daar niets bij past, gebruiken we de schatting van de AI.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as IMns from 'expo-image-manipulator';
@@ -45,11 +45,12 @@ type Line = {
   alternatives: Food[];
 };
 
+/** Waar de herkenning vandaan komt: een foto (uri) of alleen je beschrijving (uri leeg). */
 type Phase =
   | { kind: 'start' }
-  | { kind: 'busy'; uri: string }
-  | { kind: 'result'; uri: string; title: string; note: string; hiddenFat: boolean; used: number | null; limit: number | null }
-  | { kind: 'error'; uri?: string; message: string };
+  | { kind: 'busy'; uri: string | null }
+  | { kind: 'result'; uri: string | null; title: string; note: string; hiddenFat: boolean; used: number | null; limit: number | null }
+  | { kind: 'error'; message: string };
 
 let counter = 0;
 const nextKey = () => `l${++counter}`;
@@ -58,12 +59,12 @@ const sourceOf = (f: Food): MatchSource => (f.id.startsWith('ai:') ? 'ai' : f.so
 const SOURCE_LABEL: Record<MatchSource, string> = { nevo: 'NEVO', mine: 'Jouw product', ai: 'Schatting (AI)' };
 const CONF_LABEL: Record<Confidence, string> = { hoog: 'hoeveelheid vrij zeker', midden: 'hoeveelheid geschat', laag: 'hoeveelheid onzeker' };
 
-export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: string }) {
+export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; date: string; text?: string }) {
   const { state, actions } = useApp();
   const nav = useNav();
   const cloud = useCloudStatus();
   const [meal, setMeal] = useState<MealId>(startMeal);
-  const [hint, setHint] = useState('');
+  const [hint, setHint] = useState(text ?? '');
   const [phase, setPhase] = useState<Phase>({ kind: 'start' });
   const [lines, setLines] = useState<Line[]>([]);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -79,6 +80,40 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
 
   const signedIn = !!cloud.email;
 
+  /** Stuurt een foto (base64) of alleen de beschrijving naar de AI en zet het resultaat klaar om na te kijken. */
+  const recognize = async (uri: string | null, getImage: () => Promise<string | null>) => {
+    setPhase({ kind: 'busy', uri });
+    setLines([]);
+    setOpenKey(null);
+    setAdding(false);
+    try {
+      const b64 = uri ? await getImage() : null;
+      if (uri && !b64) throw new Error('De foto kon niet worden gelezen. Probeer een andere.');
+      const reply = await recognizeFood(b64, hint.trim());
+      const result = parsePhotoResult(reply.result);
+      const matches = matchAll(result, find);
+      setLines(
+        matches.map((m) => ({ key: nextKey(), food: m.food, grams: m.grams, text: String(m.grams), source: m.source, item: m.item, alternatives: m.alternatives })),
+      );
+      setPhase({ kind: 'result', uri, title: result.title, note: result.note, hiddenFat: result.hiddenFat, used: reply.used, limit: reply.limit });
+    } catch (e: any) {
+      setPhase({ kind: 'error', message: e?.message ?? 'Herkennen lukte niet. Probeer het opnieuw.' });
+    }
+  };
+
+  const describe = () => {
+    if (hint.trim().length < 2) return;
+    recognize(null, async () => null);
+  };
+
+  // Vanuit het zoekveld ("Laat de AI dit invullen") meteen starten.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !text || text.trim().length < 2 || !signedIn) return;
+    started.current = true;
+    describe();
+  }, [signedIn]);
+
   const pick = async (from: 'camera' | 'library') => {
     try {
       if (from === 'camera') {
@@ -92,21 +127,9 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
       const res = from === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets?.length) return;
       const a = res.assets[0];
-      setPhase({ kind: 'busy', uri: a.uri });
-      setLines([]);
-      setOpenKey(null);
-      setAdding(false);
-      const b64 = await shrink(a.uri, a.width, a.height);
-      if (!b64) throw new Error('De foto kon niet worden gelezen. Probeer een andere.');
-      const reply = await recognizeFood(b64, hint.trim());
-      const result = parsePhotoResult(reply.result);
-      const matches = matchAll(result, find);
-      setLines(
-        matches.map((m) => ({ key: nextKey(), food: m.food, grams: m.grams, text: String(m.grams), source: m.source, item: m.item, alternatives: m.alternatives })),
-      );
-      setPhase({ kind: 'result', uri: a.uri, title: result.title, note: result.note, hiddenFat: result.hiddenFat, used: reply.used, limit: reply.limit });
+      await recognize(a.uri, () => shrink(a.uri, a.width, a.height));
     } catch (e: any) {
-      setPhase((p) => ({ kind: 'error', uri: p.kind === 'busy' ? p.uri : undefined, message: e?.message ?? 'Herkennen lukte niet. Probeer het opnieuw.' }));
+      setPhase({ kind: 'error', message: e?.message ?? 'Herkennen lukte niet. Probeer het opnieuw.' });
     }
   };
 
@@ -131,7 +154,7 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
     setAdding(false);
   };
   const addFat = (name: string, query: string, grams: number) => {
-    const item: PhotoItem = { name, query, grams, unit: 'g', confidence: 'midden', per: { kcal: 880, e: 0, k: 0, v: 99 } };
+    const item: PhotoItem = { name, query, grams, unit: 'g', confidence: 'midden', portion: '', per: { kcal: 880, e: 0, k: 0, v: 99 } };
     const m = matchItem(item, find);
     setLines((ls) => [...ls, { key: nextKey(), food: m.food, grams, text: String(grams), source: m.source, item, alternatives: m.alternatives }]);
   };
@@ -139,7 +162,7 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
   const valid = lines.filter((l) => l.grams > 0);
   const totals = photoTotals(valid);
   const items = valid.map((l) => ({ food: l.food, grams: l.grams }));
-  const title = phase.kind === 'result' ? phase.title : 'Maaltijd van foto';
+  const title = phase.kind === 'result' ? phase.title : 'Maaltijd';
 
   const logIt = (asFav: boolean) => {
     if (!items.length) return;
@@ -151,10 +174,10 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
   if (!cloudConfigured || !signedIn) {
     return (
       <Screen>
-        <BackHeader title="Foto van je eten" onBack={nav.back} />
+        <BackHeader title="Herkennen met AI" onBack={nav.back} />
         <Empty
-          title="Log in om foto's te laten herkennen"
-          text="De herkenning gebeurt op de server, zodat de AI-sleutel geheim blijft. Daarvoor moet je ingelogd zijn. Zoeken en scannen werken ook zonder."
+          title="Log in om de AI te gebruiken"
+          text="Foto's en beschrijvingen worden op de server herkend, zodat de AI-sleutel geheim blijft. Daarvoor moet je ingelogd zijn. Zoeken en scannen werken ook zonder."
         >
           <Button small variant="outline" label="Inloggen" onPress={() => nav.push({ name: 'cloud' })} />
         </Empty>
@@ -164,7 +187,7 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
 
   return (
     <Screen>
-      <BackHeader title={phase.kind === 'result' ? 'Dit zie ik' : 'Foto van je eten'} onBack={nav.back} />
+      <BackHeader title={phase.kind === 'result' ? 'Dit zie ik' : 'Herkennen met AI'} onBack={nav.back} />
 
       {phase.kind === 'start' || phase.kind === 'error' ? (
         <>
@@ -179,21 +202,21 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
             </Card>
           ) : (
             <T size={14} color={C.muted} style={{ lineHeight: 20 }}>
-              Maak een foto van je bord of kies er een uit je galerij. De AI schat wat erop ligt en hoeveel; jij kijkt het na voordat het in je dagboek komt.
+              Beschrijf wat je at, of maak een foto van je bord. De AI maakt er een lijst van met grammen; jij kijkt het na voordat het in je dagboek komt.
             </T>
           )}
           <View style={{ gap: 6 }}>
             <T size={13} weight="semibold" color={C.muted}>
-              Hint (mag leeg blijven)
+              Wat at of dronk je?
             </T>
             <TextInput
-              accessibilityLabel="Hint voor de AI"
+              accessibilityLabel="Beschrijf wat je at"
               value={hint}
               onChangeText={setHint}
-              placeholder="Bijv. 200 g pasta, gebakken in olijfolie"
+              placeholder="Bijv. 2 kiwi's en een banaan"
               placeholderTextColor="#9A9D96"
               multiline
-              maxLength={300}
+              maxLength={500}
               style={{
                 minHeight: 48,
                 borderWidth: 1.5,
@@ -208,20 +231,32 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
               }}
             />
           </View>
-          <Button label="Foto maken" icon="camera" onPress={() => pick('camera')} />
-          <Button label="Kies uit galerij" icon="image" variant="outline" onPress={() => pick('library')} />
+          <Button label="Herken tekst" icon="edit" disabled={hint.trim().length < 2} onPress={describe} />
+          <T size={13} weight="semibold" color={C.muted} style={{ textAlign: 'center', marginVertical: 2 }}>
+            of met een foto (je tekst geldt dan als hint)
+          </T>
+          <Row style={{ gap: 10 }}>
+            <Button label="Foto maken" icon="camera" variant="outline" onPress={() => pick('camera')} style={{ flex: 1 }} small />
+            <Button label="Galerij" icon="image" variant="outline" onPress={() => pick('library')} style={{ flex: 1 }} small />
+          </Row>
           <T size={12} color={C.muted} style={{ lineHeight: 17 }}>
-            Je foto gaat via onze server naar Google Gemini en wordt niet bewaard.
+            Je tekst of foto gaat via onze server naar Google Gemini en wordt niet bewaard.
           </T>
         </>
       ) : null}
 
       {phase.kind === 'busy' ? (
         <Card style={{ alignItems: 'center', gap: 14 }}>
-          <Image source={{ uri: phase.uri }} style={{ width: '100%', height: 220, borderRadius: 14 }} resizeMode="cover" />
+          {phase.uri ? (
+            <Image source={{ uri: phase.uri }} style={{ width: '100%', height: 220, borderRadius: 14 }} resizeMode="cover" />
+          ) : (
+            <T size={15} color={C.soft} style={{ textAlign: 'center', fontStyle: 'italic' }}>
+              “{hint.trim()}”
+            </T>
+          )}
           <ActivityIndicator color={C.accent} />
           <T size={15} weight="semibold">
-            Even kijken wat er op je bord ligt…
+            {phase.uri ? 'Even kijken wat er op je bord ligt…' : 'Even uitzoeken wat je bedoelt…'}
           </T>
         </Card>
       ) : null}
@@ -229,7 +264,7 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
       {phase.kind === 'result' ? (
         <>
           <Row style={{ gap: 12 }}>
-            <Image source={{ uri: phase.uri }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="cover" />
+            {phase.uri ? <Image source={{ uri: phase.uri }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="cover" /> : null}
             <View style={{ flex: 1, gap: 2 }}>
               <T size={17} weight="bold" numberOfLines={2}>
                 {phase.title}
@@ -268,7 +303,7 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
                 Gebakken in olie of boter?
               </T>
               <T size={14} color={C.muted} style={{ lineHeight: 20 }}>
-                Dat zie je niet goed op een foto, maar het telt flink mee. Een eetlepel is ongeveer 10 g.
+                {phase.uri ? 'Dat zie je niet goed op een foto' : 'Dat stond er niet bij'}, maar het telt flink mee. Een eetlepel is ongeveer 10 g.
               </T>
               <Row style={{ gap: 8 }}>
                 <Button small variant="outline" label="+ Olie 10 g" onPress={() => addFat('Olijfolie', 'olie olijf', 10)} style={{ flex: 1 }} />
@@ -307,10 +342,10 @@ export function PhotoScreen({ meal: startMeal, date }: { meal: MealId; date: str
             disabled={!items.length}
             onPress={() => logIt(true)}
           />
-          <Button small variant="ghost" icon="camera" label="Nieuwe foto" onPress={() => setPhase({ kind: 'start' })} />
+          <Button small variant="ghost" icon={phase.uri ? 'camera' : 'edit'} label={phase.uri ? 'Nieuwe foto' : 'Beschrijving aanpassen'} onPress={() => setPhase({ kind: 'start' })} />
 
           <T size={12} color={C.muted} style={{ lineHeight: 17 }}>
-            Grammen zijn een schatting van de AI: kijk ze na.{phase.used && phase.limit ? ` Vandaag ${phase.used} van ${phase.limit} foto's gebruikt.` : ''} Waarden: NEVO-online versie 2025/9.0, RIVM, Bilthoven, of je eigen producten.
+            Grammen zijn een schatting van de AI: kijk ze na.{phase.used && phase.limit ? ` Vandaag ${phase.used} van ${phase.limit} keer AI gebruikt.` : ''} Waarden: NEVO-online versie 2025/9.0, RIVM, Bilthoven, of je eigen producten.
           </T>
         </>
       ) : null}
@@ -340,7 +375,11 @@ function LineCard({
   const u = unitOf(l.food);
   const kcal = (l.food.per.kcal * l.grams) / 100;
   const low = l.item?.confidence === 'laag';
-  const sub = [SOURCE_LABEL[l.source], l.item && l.item.name.toLowerCase() !== l.food.name.toLowerCase() ? `zag: ${l.item.name}` : '', l.item ? CONF_LABEL[l.item.confidence] : '']
+  const sub = [
+    SOURCE_LABEL[l.source],
+    l.item && l.item.name.toLowerCase() !== l.food.name.toLowerCase() ? `AI: ${l.item.name}` : '',
+    l.item?.portion ? l.item.portion : l.item ? CONF_LABEL[l.item.confidence] : '',
+  ]
     .filter(Boolean)
     .join(' · ');
   return (

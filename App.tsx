@@ -164,7 +164,7 @@ function Root() {
         screen = <ScanScreen key={stack.length} meal={route.meal} date={route.date} />;
         break;
       case 'photo':
-        screen = <PhotoScreen key={stack.length} meal={route.meal} date={route.date} />;
+        screen = <PhotoScreen key={stack.length} meal={route.meal} date={route.date} text={route.text} />;
         break;
       case 'product':
         screen = (

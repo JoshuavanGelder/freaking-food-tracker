@@ -85,8 +85,12 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   `releases/latest` op GitHub (alleen als de repo openbaar is; anders stil), vergelijkt het buildnummer (`extra.build` in
   app.config.js = `GITHUB_RUN_NUMBER`, tag `build-N`) en toont `UpdateBanner` op Vandaag en `UpdateSection` op Doelen.
   Pure logica in `src/logic/update.ts`. De releasetekst begint met de commit-titel (workflow maakt `release-notes.md`).
-- Fotoherkenning (route `photo`, `src/screens/PhotoScreen.tsx`, knop "Foto" naast "Scan barcode" in AddScreen):
-  foto maken of uit de galerij (`expo-image-picker`), verkleinen tot 1024 px (`expo-image-manipulator`), naar de Edge
+- AI-herkenning, foto of tekst (route `photo` met optioneel `text`, `src/screens/PhotoScreen.tsx` "Herkennen met AI"; knop
+  "Foto" naast "Scan barcode" in AddScreen, en in de zoekresultaten "Laat de AI dit invullen" — bovenaan als de zoekopdracht
+  op een beschrijving lijkt: cijfer, komma, "en"/"met" of 3+ woorden; dan start het scherm meteen). Beschrijving zonder foto
+  ("2 kiwi's en een banaan") gaat als `hint` zonder `image` naar de functie (TEXT_PROMPT: stuks → gram met vaste gewichten,
+  veld `portie`); met foto is de tekst een hint (PHOTO_PROMPT). Daglimiet telt foto's en tekst samen.
+  Foto maken of uit de galerij (`expo-image-picker`), verkleinen tot 1024 px (`expo-image-manipulator`), naar de Edge
   Function `supabase/functions/food-photo` (`recognizeFood` in `src/cloud.ts`, alleen ingelogd). Die telt via rpc
   `use_photo()` (tabel `photo_usage`, ook de logincontrole) en vraagt Google Gemini (gratis laag AI Studio; secret
   `GEMINI_API_KEY`, optioneel `GEMINI_MODELS`, `PHOTO_DAILY_LIMIT` standaard 25) om onderdelen met NEVO-achtige zoekterm
@@ -95,6 +99,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   Controlescherm "Dit zie ik": grammen aanpassen, ander product, iets toevoegen, olie/boter bij `verborgen_vet`,
   toevoegen aan een maaltijd (`addFavMealTo`) en eventueel als favoriete maaltijd. Foto wordt niet bewaard.
   Functie uitrollen: Supabase-koppeling `deploy_edge_function` (verify_jwt false) werkt wel; kopie staat in de repo.
+  gemini-3.5-flash geeft soms 503 (druk); de functie valt dan terug op het volgende model (zie logs `function_logs`).
 - `modules/barcode-photo`: lokale Expo-module met zxing-cpp voor de fotoscan.
 - Schermen in `src/screens/`, UI-bouwstenen in `src/ui.tsx`, kleuren/fonts in `src/theme.ts` (accent #15803D).
 

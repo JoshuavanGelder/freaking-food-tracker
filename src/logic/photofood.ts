@@ -1,4 +1,4 @@
-// Fotoherkenning: het antwoord van de Edge Function `food-photo` controleren en elk onderdeel koppelen
+// AI-herkenning (foto of beschrijving): het antwoord van de Edge Function `food-photo` controleren en elk onderdeel koppelen
 // aan een product uit NEVO of je eigen producten. De AI levert alleen naam, zoekterm en grammen;
 // de voedingswaarden komen uit NEVO (of je eigen product). Vindt de app niets, dan gebruiken we de
 // schatting van de AI, duidelijk gemarkeerd.
@@ -14,6 +14,8 @@ export type PhotoItem = {
   grams: number;
   unit: Unit;
   confidence: Confidence;
+  /** Hoeveelheid in gewone woorden, bijv. "2 stuks" of "1 glas" (kan leeg zijn). */
+  portion: string;
   /** Schatting van de AI per 100 g/ml, alleen als reserve. */
   per: { kcal: number; e: number; k: number; v: number };
 };
@@ -59,6 +61,7 @@ export function parsePhotoResult(raw: unknown): PhotoResult {
       grams: roundGrams(grams),
       unit: o.eenheid === 'ml' ? 'ml' : 'g',
       confidence: conf,
+      portion: str(o.portie, 30),
       per: {
         kcal: num(o.kcal, 0, 900) ?? 0,
         e: num(o.eiwit, 0, 100) ?? 0,
@@ -157,8 +160,13 @@ export function fitScore(food: Food, item: PhotoItem, rank: number): number {
   let score = rank * 2;
   const seen = new Set<string>();
   for (const w of want.split(' ')) {
-    if (w.length < 3 || seen.has(w)) continue;
+    if (!w || seen.has(w)) continue;
     seen.add(w);
+    // Korte woorden ("ei") alleen als heel woord, anders vindt "ei" ook "prei".
+    if (w.length < 3) {
+      if (words.some((n) => n.replace(/-$/, '') === w)) score -= 10;
+      continue;
+    }
     // "witte rijst" ↔ "rijst witte", "volkorenbrood" ↔ "tarwebrood volkoren": ook stammen en samenstellingen tellen.
     const stem = w.length > 5 ? w.slice(0, -1) : w;
     if (words.some((n) => n.startsWith(stem) || (n.length >= 4 && w.includes(n.replace(/-$/, ''))))) score -= 10;
@@ -170,7 +178,8 @@ export function fitScore(food: Food, item: PhotoItem, rank: number): number {
   if (NOT_EATEN.test(name) && !NOT_EATEN.test(want)) score += 25;
   // Light/zero zie je niet op een foto: alleen als de AI of je hint het noemt.
   if (LIGHT.test(name) && !LIGHT.test(want)) score += 12;
-  if (/\bgem\b/.test(name)) score -= 4;
+  // Gemiddelde of naturel variant als standaard ("Kiwi gem", "Beschuit naturel").
+  if (/\b(gem|naturel)\b/.test(name)) score -= 4;
   return score + words.length;
 }
 

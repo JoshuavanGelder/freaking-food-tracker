@@ -62,6 +62,14 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
     setMoreNevo(false);
   };
 
+  // Lijkt de zoekopdracht op een beschrijving ("2 kiwi's en een banaan")? Dan bieden we de AI bovenaan aan.
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  const looksLikeMeal = searching && (/\d|,|\ben\b|\bmet\b/i.test(query) || words.length >= 3);
+  const askAi = () => nav.push({ name: 'photo', meal, date, text: query.trim() });
+  const aiButton = !pickMeal && searching ? (
+    <Button small variant={looksLikeMeal ? 'primary' : 'ghost'} icon="edit" label="Laat de AI dit invullen" onPress={askAi} />
+  ) : null;
+
   const open = (food: Food) => nav.push({ name: 'product', food, meal, date, grams: state.lastPortion[food.id] });
   const byIds = (ids: string[]) => ids.map((id) => state.foods[id]).filter(Boolean) as Food[];
   const own = Object.values(state.foods).filter((f) => f.source === 'eigen');
@@ -142,6 +150,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
               </T>
             </Pressable>
           </Row>
+          {looksLikeMeal ? aiButton : null}
           {nevoHits.length ? list(shownNevo) : null}
           {nevoHits.length > 8 && !moreNevo ? (
             <Button small variant="ghost" label={`Meer basisproducten tonen`} onPress={() => setMoreNevo(true)} />
@@ -186,6 +195,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
               style={{ marginTop: nevoHits.length || mineHits.length ? 4 : 0 }}
             />
           )}
+          {!looksLikeMeal ? aiButton : null}
         </View>
       ) : (
         <>

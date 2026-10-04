@@ -19,6 +19,7 @@ const item = (name: string, query: string, grams = 150, unit: 'g' | 'ml' = 'g'):
   grams,
   unit,
   confidence: 'midden',
+  portion: '',
   per: { kcal: 120, e: 5, k: 15, v: 4 },
 });
 
@@ -26,7 +27,7 @@ test('parsePhotoResult controleert en rondt af', () => {
   const r = parsePhotoResult({
     titel: 'Rijst met kip',
     onderdelen: [
-      { naam: 'witte rijst', zoekterm: 'rijst witte gekookt', gram: 183, eenheid: 'g', zekerheid: 'hoog', kcal: 130, eiwit: 2.7, koolhydraten: 28, vet: 0.3 },
+      { naam: 'witte rijst', zoekterm: 'rijst witte gekookt', gram: 183, portie: '1 bord', eenheid: 'g', zekerheid: 'hoog', kcal: 130, eiwit: 2.7, koolhydraten: 28, vet: 0.3 },
       { naam: 'Kipfilet', zoekterm: '', gram: '120,4', eenheid: 'x', zekerheid: 'zeker', kcal: 'veel' },
       { naam: '', gram: 50 },
       { naam: 'Ijsklontje', gram: -5 },
@@ -48,6 +49,8 @@ test('parsePhotoResult controleert en rondt af', () => {
     ],
   );
   assert.equal(r.items[1].per.kcal, 0);
+  assert.equal(r.items[0].portion, '1 bord');
+  assert.equal(r.items[1].portion, '');
   assert.equal(r.hiddenFat, true);
   assert.equal(r.note, 'Kijk de saus na.');
 });
@@ -120,4 +123,21 @@ test('photoTotals en foutmeldingen', () => {
   assert.equal(photoError(429, { message: 'Limiet' }), 'Limiet');
   assert.match(photoError(401, null), /uitgelogd/);
   assert.match(photoError(500, 'x'), /500/);
+});
+
+test('beschrijving: kiwi, banaan en andere stuks koppelen aan NEVO', () => {
+  const cases: [string, string, string][] = [
+    ['Kiwi', 'kiwi', 'Kiwi gem'],
+    ['Banaan', 'banaan', 'Banaan'],
+    ['Appel', 'appel', 'Appel m schil gem'],
+    ['Gekookt ei', 'ei gekookt', 'Ei kippen- gekookt gem'],
+    ['Beschuit', 'beschuit', 'Beschuit naturel'],
+    ['Cola', 'frisdrank cola', ''],
+  ];
+  for (const [name, q, want] of cases) {
+    const m = matchItem(item(name, q, 150), find());
+    assert.equal(m.source, 'nevo', name);
+    if (want) assert.equal(m.food.name, want, name);
+    assert.equal(m.grams, 150);
+  }
 });
