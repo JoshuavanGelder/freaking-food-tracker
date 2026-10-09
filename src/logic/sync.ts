@@ -151,6 +151,18 @@ export function planPush(s: SyncState, snap: SyncSnapshot, name: string, now: nu
   return plan;
 }
 
+/**
+ * Veiligheidsstop tegen een "leeg" toestel: verdwijnt ineens het grootste deel van de bekende regels én is er
+ * lokaal niets geladen (geen profiel, geen logregels), dan is waarschijnlijk de app-state niet ingelezen en sturen
+ * we geen verwijderingen. Een gebruiker met een profiel die zelf veel regels weghaalt (bijv. per ongeluk te veel
+ * toegevoegd) is geen reden tot stoppen: verwijderen is in de cloud toch een markering ("deleted"), geen echt wissen.
+ */
+export function deletesLookUnsafe(plan: PushPlan, snap: SyncSnapshot, s: SyncState): boolean {
+  const known = Object.keys(snap.entries).length;
+  const many = plan.deleteEntries.length > 20 && plan.deleteEntries.length > known / 2;
+  return many && !s.profile && s.log.length === 0;
+}
+
 export function isEmptyPlan(p: PushPlan): boolean {
   return !p.upsertEntries.length && !p.deleteEntries.length && !p.upsertWeights.length && !p.deleteWeights.length && !p.meta && !p.library;
 }

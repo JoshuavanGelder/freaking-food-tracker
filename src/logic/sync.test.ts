@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_SNAPSHOT, afterPush, applyPull, entryHash, hashText, isEmptyPlan, planPush, stableStringify } from './sync.ts';
+import { EMPTY_SNAPSHOT, afterPush, applyPull, deletesLookUnsafe, entryHash, hashText, isEmptyPlan, planPush, stableStringify } from './sync.ts';
 import type { Remote, SyncState } from './sync.ts';
 import type { Food } from './off.ts';
 
@@ -165,4 +165,21 @@ test('gewichten: server-wijziging komt door, lokale wijziging wint', () => {
   ]);
   const local = { ...phone, weights: [{ date: '2026-10-01', kg: 91 }] };
   assert.deepEqual(applyPull(local, snap, remote, '').state.weights[0], { date: '2026-10-01', kg: 91 });
+});
+
+test('veiligheidsstop: veel zelf weggehaalde regels met een profiel zijn geen reden om te stoppen', () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({ id: `x${i}`, date: '2026-10-09', meal: 'lunch' as const, food: kwark, grams: 100 }));
+  const before = st({ log: [...many, { id: 'keep', date: '2026-10-09', meal: 'diner', food: brood, grams: 80 }] });
+  const snap = afterPush(EMPTY_SNAPSHOT, planPush(before, EMPTY_SNAPSHOT, '', 1000));
+  // 30 van de 31 regels weggehaald, profiel aanwezig → gewoon doorgaan
+  const after = st({ log: before.log.slice(30) });
+  const plan = planPush(after, snap, '', 2000);
+  assert.equal(plan.deleteEntries.length, 30);
+  assert.equal(deletesLookUnsafe(plan, snap, after), false);
+  // alles weg zonder profiel (app-state niet geladen) → stoppen
+  const empty = st({ profile: null, log: [] });
+  assert.equal(deletesLookUnsafe(planPush(empty, snap, '', 2000), snap, empty), true);
+  // weinig verwijderingen → nooit stoppen
+  const few = st({ profile: null, log: before.log.slice(10) });
+  assert.equal(deletesLookUnsafe(planPush(few, snap, '', 2000), snap, few), false);
 });

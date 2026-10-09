@@ -17,6 +17,7 @@ import {
   WeightRow,
   afterPush,
   applyPull,
+  deletesLookUnsafe,
   isEmptyPlan,
   planPush,
   stableStringify,
@@ -346,10 +347,9 @@ export function syncNow(bridge: SyncBridge): Promise<void> {
 
         const state = await bridge.read();
         const plan = planPush(state, data.snap, data.name, Date.now());
-        // Veiligheidsstop: de app verwijdert regels één voor één. Verdwijnt ineens het grootste deel,
-        // dan is er iets mis (bijv. gegevens niet geladen) en sturen we geen verwijderingen.
-        const known = Object.keys(data.snap.entries).length;
-        if (plan.deleteEntries.length > 20 && plan.deleteEntries.length > known / 2) {
+        // Veiligheidsstop: lijkt de app leeg terwijl er veel in de cloud staat (gegevens niet geladen), dan
+        // sturen we geen verwijderingen. Zie deletesLookUnsafe in logic/sync.ts.
+        if (deletesLookUnsafe(plan, data.snap, state)) {
           throw new CloudError('Veiligheidsstop: de app wilde heel veel regels in de cloud verwijderen. Er is niets verwijderd.');
         }
         if (!isEmptyPlan(plan)) {
