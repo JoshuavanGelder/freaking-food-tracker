@@ -31,7 +31,12 @@ jobs:
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Versies afstemmen op de Expo SDK
-        run: npx expo install --fix -- --legacy-peer-deps
+        run: |
+          set +e
+          npx expo install --fix -- --legacy-peer-deps > expo-fix.log 2>&1
+          code=$?
+          tail -n 12 expo-fix.log | cut -c1-300 | while IFS= read -r line; do echo "::warning title=expofix::$line"; done
+          exit $code
 
       - name: Controle eigen native module (autolinking)
         continue-on-error: true
@@ -82,7 +87,12 @@ jobs:
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Versies afstemmen op de Expo SDK
-        run: npx expo install --fix -- --legacy-peer-deps
+        run: |
+          set +e
+          npx expo install --fix -- --legacy-peer-deps > expo-fix.log 2>&1
+          code=$?
+          tail -n 12 expo-fix.log | cut -c1-300 | while IFS= read -r line; do echo "::warning title=expofix::$line"; done
+          exit $code
 
       - name: Rekentests
         run: npm test
