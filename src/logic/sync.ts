@@ -8,7 +8,7 @@
 // - entries: logregels, per id (verwijderen = tombstone `deleted`)
 // - weights: per datum
 // - meta: profiel, doelen, recent en laatste porties, naam (één rij per gebruiker, nieuwste wint)
-// - library: eigen/bekende producten, favorieten, favoriete maaltijden, imports (één rij per gebruiker)
+// - library: eigen/bekende producten, favorieten, favoriete maaltijden, imports, standaard per weekdag (één rij per gebruiker)
 //
 // Geen runtime-imports uit andere logic-bestanden (alleen types), zie CLAUDE.md.
 
@@ -17,6 +17,7 @@ import type { Food } from './off';
 
 export type SyncEntry = { id: string; date: string; meal: 'ontbijt' | 'lunch' | 'diner' | 'snacks'; food: Food; grams: number };
 export type SyncFavMeal = { id: string; name: string; items: { food: Food; grams: number }[] };
+export type SyncDefaultItem = { meal: 'ontbijt' | 'lunch' | 'diner' | 'snacks'; food: Food; grams: number };
 
 /** Het deel van AppState dat gesynchroniseerd wordt (zelfde vorm als in store.tsx). */
 export type SyncState = {
@@ -30,6 +31,9 @@ export type SyncState = {
   lastPortion: Record<string, number>;
   favMeals: SyncFavMeal[];
   imports: string[];
+  /** Standaard per weekdag ('0' = zondag) en de dagen waarvoor je het voorstel al hebt beantwoord. */
+  weekdayDefaults?: Record<string, SyncDefaultItem[]>;
+  defaultsDone?: string[];
 };
 
 export type SyncSnapshot = {
@@ -50,7 +54,14 @@ export type EntryRow = { id: string; date: string; meal: string; food: Food | nu
 export type WeightRow = { date: string; kg: number | null; deleted: boolean; updated_ms: number };
 export type MetaData = { profile: Profile | null; goals: Goals; recent: string[]; lastPortion: Record<string, number>; name: string };
 export type MetaRow = { profile: Profile | null; goals: Partial<Goals> | null; prefs: { recent?: string[]; lastPortion?: Record<string, number> } | null; name: string | null; updated_ms: number };
-export type LibraryData = { foods: Record<string, Food>; favorites: string[]; favMeals: SyncFavMeal[]; imports: string[] };
+export type LibraryData = {
+  foods: Record<string, Food>;
+  favorites: string[];
+  favMeals: SyncFavMeal[];
+  imports: string[];
+  weekdayDefaults: Record<string, SyncDefaultItem[]>;
+  defaultsDone: string[];
+};
 export type LibraryRow = { data: Partial<LibraryData> | null; updated_ms: number };
 
 // ---------- hashing ----------
@@ -86,7 +97,14 @@ export function metaOf(s: SyncState, name: string): MetaData {
   return { profile: s.profile, goals: s.goals, recent: s.recent, lastPortion: s.lastPortion, name };
 }
 export function libraryOf(s: SyncState): LibraryData {
-  return { foods: s.foods, favorites: s.favorites, favMeals: s.favMeals, imports: s.imports };
+  return {
+    foods: s.foods,
+    favorites: s.favorites,
+    favMeals: s.favMeals,
+    imports: s.imports,
+    weekdayDefaults: s.weekdayDefaults ?? {},
+    defaultsDone: s.defaultsDone ?? [],
+  };
 }
 export const metaHash = (m: MetaData) => h(m);
 export const libraryHash = (l: LibraryData) => h(l);
@@ -201,7 +219,10 @@ function mergeLibrary(local: LibraryData, remote: Partial<LibraryData>): Library
   const haveMeal = new Set(local.favMeals.map((m) => m.id));
   const favMeals = [...local.favMeals, ...(remote.favMeals ?? []).filter((m) => m && !haveMeal.has(m.id))];
   const imports = [...local.imports, ...(remote.imports ?? []).filter((id) => !local.imports.includes(id))];
-  return { foods, favorites, favMeals, imports };
+  // per weekdag wint de lokale standaard; wat lokaal ontbreekt komt van de server
+  const weekdayDefaults = { ...(remote.weekdayDefaults ?? {}), ...local.weekdayDefaults };
+  const defaultsDone = [...local.defaultsDone, ...(remote.defaultsDone ?? []).filter((d) => !local.defaultsDone.includes(d))];
+  return { foods, favorites, favMeals, imports, weekdayDefaults, defaultsDone };
 }
 
 /**
@@ -317,6 +338,8 @@ export function applyPull<S extends SyncState>(
         favorites: data.favorites ?? [],
         favMeals: data.favMeals ?? [],
         imports: data.imports ?? [],
+        weekdayDefaults: data.weekdayDefaults ?? state.weekdayDefaults ?? {},
+        defaultsDone: data.defaultsDone ?? state.defaultsDone ?? [],
       };
       state = { ...state, ...next };
       library = libraryHash(next);

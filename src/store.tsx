@@ -5,6 +5,7 @@ import type { Food } from './logic/off';
 import type { ImportEntry } from './logic/importer';
 import { BackupState, mergeBackup } from './logic/backup';
 import type { SyncState } from './logic/sync';
+import { DefaultItem, WeekdayDefaults, defaultFromDay, markDone, weekdayOf } from './logic/dayplan';
 
 export type MealId = 'ontbijt' | 'lunch' | 'diner' | 'snacks';
 
@@ -44,6 +45,9 @@ export type AppState = {
   lastPortion: Record<string, number>;
   favMeals: FavMeal[];
   imports: string[];
+  /** Standaard per weekdag ('0' = zondag) en de dagen waarvoor je het voorstel al hebt beantwoord. */
+  weekdayDefaults: WeekdayDefaults;
+  defaultsDone: string[];
 };
 
 const EMPTY: AppState = {
@@ -58,6 +62,8 @@ const EMPTY: AppState = {
   lastPortion: {},
   favMeals: [],
   imports: [],
+  weekdayDefaults: {},
+  defaultsDone: [],
 };
 
 const KEY = 'fft-state-v1';
@@ -103,6 +109,13 @@ type Actions = {
   updateFavMealItem: (id: string, index: number, grams: number) => void;
   removeFavMealItem: (id: string, index: number) => void;
   addFavMealTo: (fav: FavMeal, date: string, meal: MealId) => void;
+  /** Bewaart de huidige inhoud van deze dag als standaard voor die weekdag (vervangt een bestaande standaard). */
+  setWeekdayDefault: (day: string) => void;
+  clearWeekdayDefault: (weekday: number) => void;
+  /** Neemt de voorgestelde producten over in deze dag (alleen lege maaltijden) en onthoudt dat je gekozen hebt. */
+  acceptDayOffer: (day: string, items: DefaultItem[]) => void;
+  /** Slaat het voorstel voor deze dag over; er wordt niets toegevoegd. */
+  skipDayOffer: (day: string) => void;
   importData: (id: string, entries: ImportEntry[], favMeals: { name: string; meal: MealId }[]) => void;
   /** Reservekopie terugzetten (samenvoegen, bestaande gegevens blijven staan). */
   restoreBackup: (backup: BackupState, withProfile: boolean) => void;
@@ -242,6 +255,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             log: [...next.log, ...fav.items.map((it) => ({ id: uid(), date, meal, food: it.food, grams: it.grams }))],
           };
         }),
+      setWeekdayDefault: (day) =>
+        setState((s) => {
+          const items = defaultFromDay(day, s.log);
+          if (!items.length) return s;
+          return { ...s, weekdayDefaults: { ...s.weekdayDefaults, [String(weekdayOf(day))]: items } };
+        }),
+      clearWeekdayDefault: (weekday) =>
+        setState((s) => {
+          const next = { ...s.weekdayDefaults };
+          delete next[String(weekday)];
+          return { ...s, weekdayDefaults: next };
+        }),
+      acceptDayOffer: (day, items) =>
+        setState((s) => {
+          // alleen maaltijden die nog leeg zijn, ook als de dag intussen veranderd is
+          const filled = new Set(s.log.filter((e) => e.date === day).map((e) => e.meal));
+          const add = items.filter((i) => !filled.has(i.meal));
+          let next = s;
+          for (const it of add) next = rememberFood(next, it.food, it.grams);
+          return {
+            ...next,
+            log: [...next.log, ...add.map((it) => ({ id: uid(), date: day, meal: it.meal, food: it.food, grams: it.grams }))],
+            defaultsDone: markDone(s.defaultsDone, day, dateKey(new Date())),
+          };
+        }),
+      skipDayOffer: (day) => setState((s) => ({ ...s, defaultsDone: markDone(s.defaultsDone, day, dateKey(new Date())) })),
       importData: (id, entries, favMeals) =>
         setState((s) => {
           let next = s;

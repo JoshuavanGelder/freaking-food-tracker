@@ -49,6 +49,14 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
 - `src/logic/measures.ts`: keukenmaten (theelepel 5, dessertlepel 10, eetlepel 15; bij ml ook kopje 125, glas 200, mok 250).
   In `ProductScreen` de modus "Keukenmaat" (aantal × maat). Grootte is een schatting (water); aanpasbaar per product en
   onthouden in `Food.measures` (`withMeasure`), dat meesynchroniseert met de bibliotheek.
+- Dagen vooruit en standaard per weekdag (`src/logic/dayplan.ts`, getest; UI in `src/screens/DayPlanCard.tsx`, op Vandaag):
+  je mag tot en met overmorgen loggen (`DAYS_AHEAD` = 2; knop "Volgende dag" stopt daar, titels Morgen/Overmorgen, "Gepland"
+  i.p.v. "Gegeten"). `AppState.weekdayDefaults` ('0' = zondag … '6') bevat producten per maaltijd; geen standaard voor die
+  weekdag → voorstel = dezelfde dag een week eerder (`suggestionFor`). Een voorstel wordt **nooit vanzelf toegepast**: kaart
+  `DayOffer` met "Overnemen" (vult alleen lege maaltijden, `acceptDayOffer`) of "Overslaan"; `AppState.defaultsDone` onthoudt
+  per datum dat er gekozen is (oude dagen worden opgeruimd). `DayDefaultCard` bewaart/vervangt/wist de standaard van een
+  weekdag (met bevestiging in de kaart zelf, geen Alert). Beide velden zitten in de cloud-`library` (sync.ts, per weekdag wint
+  lokaal) en in de reservekopie (backup.ts, bestaande weekdagen blijven staan).
 - `src/logic/mine.ts`: zoeken in recent/favorieten/eigen producten (komt in AddScreen na de NEVO-treffers).
 - `src/logic/exporter.ts`: export als JSON (`fft-export` v1) voor "deze week" (afgelopen 7 dagen incl. vandaag) en "alles";
   opslaan in een gekozen map (`Directory.pickDirectoryAsync`, SAF) of delen via expo-sharing (`src/screens/ExportSection.tsx`,

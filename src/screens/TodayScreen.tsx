@@ -11,6 +11,8 @@ import { Bar, Card, H1, H2, HeartButton, IconButton, Ring, Row, Screen, T } from
 import { MICROS, SALT_MAX, microTarget } from '../logic/micros';
 import { summarizeLog } from './MicrosScreen';
 import { UpdateBanner } from './UpdateCard';
+import { DAYS_AHEAD } from '../logic/dayplan';
+import { DayDefaultCard, DayOffer } from './DayPlanCard';
 
 export function TodayScreen() {
   const { state, actions } = useApp();
@@ -30,7 +32,17 @@ export function TodayScreen() {
   const left = Math.round(target - totals.kcal);
   const favKeys = new Set(state.favMeals.map((f) => itemsKey(f.items)));
 
-  const title = day === today ? 'Vandaag' : day === addDays(today, -1) ? 'Gisteren' : formatShort(day);
+  const title =
+    day === today
+      ? 'Vandaag'
+      : day === addDays(today, -1)
+        ? 'Gisteren'
+        : day === addDays(today, 1)
+          ? 'Morgen'
+          : day === addDays(today, 2)
+            ? 'Overmorgen'
+            : formatShort(day);
+  const future = day > today;
   const fiberGoal = state.goals.fiberGoal || 30;
   const macros = [
     { name: 'Eiwit', eaten: totals.e, goal: goal.grams.e, color: C.protein },
@@ -62,7 +74,7 @@ export function TodayScreen() {
             </T>
             <H1>{title}</H1>
           </View>
-          {day < today ? (
+          {day < addDays(today, DAYS_AHEAD) ? (
             <IconButton icon="forward" label="Volgende dag" onPress={() => nav.setDay(addDays(day, 1))} color={C.ink} />
           ) : null}
         </Row>
@@ -86,7 +98,7 @@ export function TodayScreen() {
           </Ring>
           <View style={{ gap: 12, flex: 1 }}>
             <Stat label="Dagdoel" value={`${nl(target)} kcal`} />
-            <Stat label="Gegeten" value={`${nl(totals.kcal)} kcal`} />
+            <Stat label={future ? 'Gepland' : 'Gegeten'} value={`${nl(totals.kcal)} kcal`} />
             <Stat label="Plan" value={goal.planLabel} />
           </View>
         </Row>
@@ -104,6 +116,8 @@ export function TodayScreen() {
           ))}
         </Row>
       </Card>
+
+      <DayOffer day={day} />
 
       <View style={{ gap: 8 }}>
         <H2>Maaltijden</H2>
@@ -176,6 +190,8 @@ export function TodayScreen() {
           );
         })}
       </View>
+
+      <DayDefaultCard day={day} hasEntries={entries.length > 0} />
 
       <Card>
         <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>

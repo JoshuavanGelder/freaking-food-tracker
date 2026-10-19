@@ -183,3 +183,36 @@ test('veiligheidsstop: veel zelf weggehaalde regels met een profiel zijn geen re
   const few = st({ profile: null, log: before.log.slice(10) });
   assert.equal(deletesLookUnsafe(planPush(few, snap, '', 2000), snap, few), false);
 });
+
+test('standaard per weekdag gaat mee omhoog en komt op een nieuwe telefoon terug', () => {
+  const item = { meal: 'ontbijt' as const, food: kwark, grams: 250 };
+  const s = st({ weekdayDefaults: { '1': [item] }, defaultsDone: ['2026-10-19'] });
+  const plan = planPush(s, EMPTY_SNAPSHOT, 'Joshua', 1000);
+  assert.deepEqual(plan.library?.weekdayDefaults, { '1': [item] });
+  assert.deepEqual(plan.library?.defaultsDone, ['2026-10-19']);
+
+  const remote: Remote = {
+    ...none,
+    library: { data: { foods: {}, favorites: [], favMeals: [], imports: [], weekdayDefaults: { '1': [item] }, defaultsDone: ['2026-10-19'] }, updated_ms: 500 },
+  };
+  const r = applyPull(st(), EMPTY_SNAPSHOT, remote, 'Joshua');
+  assert.deepEqual(r.state.weekdayDefaults, { '1': [item] });
+  assert.deepEqual(r.state.defaultsDone, ['2026-10-19']);
+});
+
+test('ongewijzigde telefoon neemt een nieuwe standaard van de server over; een oudere serverrij laat de lokale staan', () => {
+  const item = { meal: 'ontbijt' as const, food: kwark, grams: 250 };
+  const other = { meal: 'diner' as const, food: brood, grams: 150 };
+  const s = st({ weekdayDefaults: { '1': [item] } });
+  const snap = afterPush(EMPTY_SNAPSHOT, planPush(s, EMPTY_SNAPSHOT, 'Joshua', 1000));
+
+  const newer: Remote = {
+    ...none,
+    library: { data: { foods: {}, favorites: [], favMeals: [], imports: [], weekdayDefaults: { '1': [item], '2': [other] }, defaultsDone: [] }, updated_ms: 2000 },
+  };
+  assert.deepEqual(Object.keys(applyPull(s, snap, newer, 'Joshua').state.weekdayDefaults ?? {}).sort(), ['1', '2']);
+
+  // serverrij van een oudere app-versie (zonder het veld): lokale standaard blijft
+  const legacy: Remote = { ...none, library: { data: { foods: {}, favorites: [], favMeals: [], imports: [] }, updated_ms: 3000 } };
+  assert.deepEqual(applyPull(s, snap, legacy, 'Joshua').state.weekdayDefaults, { '1': [item] });
+});

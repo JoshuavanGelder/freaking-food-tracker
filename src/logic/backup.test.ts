@@ -24,6 +24,7 @@ function state(over: Partial<BackupState> = {}): BackupState {
     lastPortion: {},
     favMeals: [],
     imports: [],
+    weekdayDefaults: {},
     ...over,
   };
 }
@@ -44,6 +45,7 @@ const full = state({
   lastPortion: { [kwark.id]: 250 },
   favMeals: [{ id: 'm1', name: 'Ontbijt', items: [{ food: kwark, grams: 250 }] }],
   imports: ['foodvisor-week'],
+  weekdayDefaults: { '1': [{ meal: 'ontbijt', food: kwark, grams: 250 }] },
 });
 
 function exportText(s: BackupState, scope: 'all' | 'week' = 'all', withBackup = true) {
@@ -142,4 +144,24 @@ test('backupSummary telt dagen, eigen producten en periode', () => {
     from: '2026-10-01',
     to: '2026-10-02',
   });
+});
+
+test('terugzetten: standaard per weekdag komt erbij, een bestaande standaard blijft staan', () => {
+  const current = state({
+    weekdayDefaults: { '1': [{ meal: 'lunch', food: brood, grams: 80 }], '3': [{ meal: 'diner', food: soep, grams: 300 }] },
+  });
+  const backup = state({
+    weekdayDefaults: { '1': [{ meal: 'ontbijt', food: kwark, grams: 250 }], '5': [{ meal: 'snacks', food: kwark, grams: 100 }] },
+  });
+  const { state: merged } = mergeBackup(current, backup, false);
+  assert.deepEqual(Object.keys(merged.weekdayDefaults ?? {}).sort(), ['1', '3', '5']);
+  assert.equal(merged.weekdayDefaults?.['1'][0].meal, 'lunch'); // lokaal wint
+});
+
+test('oude reservekopie zonder standaarden geeft een lege lijst', () => {
+  const old: any = { ...full };
+  delete old.weekdayDefaults;
+  const r = parseBackup(exportToText(buildExport('all', '2026-10-03', '2026-10-03T14:00:00.000Z', old, old)));
+  assert.ok(r.ok);
+  assert.deepEqual(r.backup.state.weekdayDefaults, {});
 });

@@ -6,6 +6,7 @@
 
 import type { Goals, Profile, WeightEntry } from './calc';
 import type { Food } from './off';
+import type { WeekdayDefaults } from './dayplan';
 
 export type BackupEntry = { id: string; date: string; meal: 'ontbijt' | 'lunch' | 'diner' | 'snacks'; food: Food; grams: number };
 export type BackupFavMeal = { id: string; name: string; items: { food: Food; grams: number }[] };
@@ -23,6 +24,8 @@ export type BackupState = {
   lastPortion: Record<string, number>;
   favMeals: BackupFavMeal[];
   imports: string[];
+  /** Standaard per weekdag; ontbreekt in oudere reservekopieën. */
+  weekdayDefaults?: WeekdayDefaults;
 };
 
 export type ParsedBackup = { exportedAt: string; state: BackupState; skipped: number };
@@ -50,6 +53,22 @@ function isWeight(w: any): w is WeightEntry {
 
 function isFavMeal(m: any): m is BackupFavMeal {
   return !!m && typeof m.id === 'string' && typeof m.name === 'string' && Array.isArray(m.items) && m.items.every((i: any) => isFood(i?.food) && i.grams > 0);
+}
+
+function isDefaultItem(i: any): boolean {
+  return !!i && MEALS.includes(i.meal) && isFood(i.food) && i.grams > 0;
+}
+
+/** Zelfde controle als parseDefaults in dayplan.ts (dubbel, want logic-bestanden importeren elkaar niet). */
+function weekdayDefaultsOf(raw: any): WeekdayDefaults {
+  const out: WeekdayDefaults = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw)) {
+    if (!/^[0-6]$/.test(k) || !Array.isArray(v)) continue;
+    const items = v.filter(isDefaultItem);
+    if (items.length) out[k] = items as WeekdayDefaults[string];
+  }
+  return out;
 }
 
 const strings = (x: any): string[] => (Array.isArray(x) ? x.filter((s) => typeof s === 'string') : []);
@@ -110,6 +129,7 @@ export function parseBackup(text: string): BackupParse {
     lastPortion,
     favMeals: keep(b.favMeals, isFavMeal),
     imports: strings(b.imports),
+    weekdayDefaults: weekdayDefaultsOf(b.weekdayDefaults),
   };
   return { ok: true, backup: { exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : '', state, skipped } };
 }
@@ -159,6 +179,8 @@ export function mergeBackup<S extends BackupState>(current: S, backup: BackupSta
     lastPortion: { ...backup.lastPortion, ...current.lastPortion },
     favMeals: [...current.favMeals, ...newFavMeals],
     imports,
+    // een standaard die al op de telefoon staat blijft; ontbrekende weekdagen komen erbij
+    weekdayDefaults: { ...(backup.weekdayDefaults ?? {}), ...(current.weekdayDefaults ?? {}) },
   };
   return {
     state,
