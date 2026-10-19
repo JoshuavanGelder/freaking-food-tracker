@@ -40,6 +40,10 @@ module.exports = {
           microphonePermission: false,
         },
       ],
+      // Deze drie vraagt 'expo install --fix' (nieuwere Expo-tool) om in de config te staan; zonder faalt de build.
+      'expo-sharing',
+      'expo-status-bar',
+      'expo-web-browser',
     ],
   },
 };
