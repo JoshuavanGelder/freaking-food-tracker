@@ -95,6 +95,8 @@ type Actions = {
   addEntry: (date: string, meal: MealId, food: Food, grams: number) => void;
   updateEntry: (id: string, grams: number) => void;
   removeEntry: (id: string) => void;
+  /** Verplaatst een gelogd product naar een andere maaltijd (zelfde dag, zelfde hoeveelheid). */
+  moveEntry: (id: string, meal: MealId) => void;
   toggleFavorite: (food: Food) => void;
   /** Bewaart een product. `replacesId`: het product dat hiermee wordt vervangen (de favoriet verhuist mee). */
   saveFood: (food: Food, replacesId?: string) => void;
@@ -186,6 +188,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       removeEntry: (id) => setState((s) => ({ ...s, log: s.log.filter((x) => x.id !== id) })),
+      moveEntry: (id, meal) => setState((s) => ({ ...s, log: s.log.map((x) => (x.id === id && x.meal !== meal ? { ...x, meal } : x)) })),
       toggleFavorite: (food) =>
         setState((s) => {
           const on = s.favorites.includes(food.id);

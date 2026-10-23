@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { addDays, dateKey, forGrams, formatLong, formatShort, nl, streak, sumNutrition } from '../logic/calc';
 import { MEALS, MealId, itemsKey, useApp } from '../store';
@@ -13,12 +13,28 @@ import { summarizeLog } from './MicrosScreen';
 import { UpdateBanner } from './UpdateCard';
 import { DAYS_AHEAD } from '../logic/dayplan';
 import { DayDefaultCard, DayOffer } from './DayPlanCard';
+import { DragEntryRow } from './DragEntry';
+import type { DropZone } from '../logic/dragdrop';
 
 export function TodayScreen() {
   const { state, actions } = useApp();
   const nav = useNav();
   const goal = useGoal();
   const [open, setOpen] = useState<MealId | null>(null);
+  // Slepen: van welke maaltijd, en boven welke maaltijd hangt het product nu.
+  const [drag, setDrag] = useState<{ from: MealId; hover: string | null } | null>(null);
+  const cards = useRef<Partial<Record<MealId, View | null>>>({});
+  const measureZones = (): Promise<DropZone[]> =>
+    Promise.all(
+      MEALS.map(
+        (m) =>
+          new Promise<DropZone | null>((resolve) => {
+            const v = cards.current[m.id];
+            if (!v) return resolve(null);
+            v.measureInWindow((_x: number, y: number, _w: number, h: number) => resolve(h > 0 ? { id: m.id, top: y, bottom: y + h } : null));
+          }),
+      ),
+    ).then((z) => z.filter((x): x is DropZone => x != null));
 
   const today = dateKey(new Date());
   const day = nav.day;
@@ -128,7 +144,22 @@ export function TodayScreen() {
           const isFav = items.length > 0 && favKeys.has(itemsKey(favItems));
           const expanded = open === meal.id && items.length > 0;
           return (
-            <View key={meal.id} style={{ backgroundColor: C.card, borderRadius: 16, ...shadow }}>
+            <View
+              key={meal.id}
+              ref={(v: View | null) => {
+                cards.current[meal.id] = v;
+              }}
+              collapsable={false}
+              style={{
+                backgroundColor: drag && drag.hover === meal.id && drag.from !== meal.id ? C.accentTint : C.card,
+                borderRadius: 16,
+                borderWidth: 2,
+                borderColor: drag && drag.hover === meal.id && drag.from !== meal.id ? C.accent : 'transparent',
+                zIndex: drag?.from === meal.id ? 10 : 0,
+                ...shadow,
+                elevation: drag?.from === meal.id ? 8 : shadow.elevation,
+              }}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded }}
@@ -165,7 +196,18 @@ export function TodayScreen() {
               {expanded ? (
                 <View style={{ borderTopWidth: 1, borderTopColor: C.track, paddingVertical: 4 }}>
                   {items.map((e) => (
-                    <Row key={e.id} style={{ paddingLeft: 16, paddingRight: 8 }}>
+                    <DragEntryRow
+                      key={e.id}
+                      label={`${e.food.name} naar een andere maaltijd slepen`}
+                      measureZones={measureZones}
+                      onActive={(on) => setDrag(on ? { from: e.meal, hover: null } : null)}
+                      onHover={(z) => setDrag((d) => (d ? { ...d, hover: z } : d))}
+                      onDrop={(z) => {
+                        if (z === e.meal) return;
+                        actions.moveEntry(e.id, z as MealId);
+                        setOpen(z as MealId);
+                      }}
+                    >
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`${e.food.name} aanpassen`}
@@ -182,7 +224,7 @@ export function TodayScreen() {
                         </T>
                       </Pressable>
                       <IconButton icon="close" label={`${e.food.name} verwijderen`} onPress={() => actions.removeEntry(e.id)} iconSize={18} />
-                    </Row>
+                    </DragEntryRow>
                   ))}
                 </View>
               ) : null}

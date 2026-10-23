@@ -17,7 +17,8 @@ export type IconName =
   | 'flame'
   | 'edit'
   | 'camera'
-  | 'image';
+  | 'image'
+  | 'grip';
 
 type Props = { name: IconName; size?: number; color: string; fill?: string; strokeWidth?: number };
 
@@ -25,6 +26,18 @@ export function Icon({ name, size = 24, color, fill = 'none', strokeWidth = 2 }:
   const common = { stroke: color, strokeWidth, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
   let body: React.ReactNode;
   switch (name) {
+    case 'grip':
+      body = (
+        <>
+          <Circle cx="9" cy="6" r="1.4" fill={color} stroke="none" />
+          <Circle cx="15" cy="6" r="1.4" fill={color} stroke="none" />
+          <Circle cx="9" cy="12" r="1.4" fill={color} stroke="none" />
+          <Circle cx="15" cy="12" r="1.4" fill={color} stroke="none" />
+          <Circle cx="9" cy="18" r="1.4" fill={color} stroke="none" />
+          <Circle cx="15" cy="18" r="1.4" fill={color} stroke="none" />
+        </>
+      );
+      break;
     case 'home':
       body = <Path {...common} d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />;
       break;

@@ -57,6 +57,11 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   per datum dat er gekozen is (oude dagen worden opgeruimd). `DayDefaultCard` bewaart/vervangt/wist de standaard van een
   weekdag (met bevestiging in de kaart zelf, geen Alert). Beide velden zitten in de cloud-`library` (sync.ts, per weekdag wint
   lokaal) en in de reservekopie (backup.ts, bestaande weekdagen blijven staan).
+- Slepen tussen maaltijden (op Vandaag): in een uitgeklapte maaltijd heeft elk product links een greep (`src/screens/DragEntry.tsx`,
+  `PanResponder` + `Animated`, geen extra pakketten). Greep vasthouden en slepen: de rij volgt de vinger, de maaltijd eronder licht op
+  (`drag` in TodayScreen); loslaten verplaatst het product (`actions.moveEntry`, zelfde dag en hoeveelheid; meal zit in `entryHash`,
+  dus de sync pakt het vanzelf op). Zones = `measureInWindow` van de maaltijdkaarten bij begin van het slepen, `zoneAt` in
+  `src/logic/dragdrop.ts` (getest). Geen auto-scroll tijdens slepen. Nog niet op een echte telefoon bekeken.
 - `src/logic/mine.ts`: zoeken in recent/favorieten/eigen producten (komt in AddScreen na de NEVO-treffers).
 - `src/logic/exporter.ts`: export als JSON (`fft-export` v1) voor "deze week" (afgelopen 7 dagen incl. vandaag) en "alles";
   opslaan in een gekozen map (`Directory.pickDirectoryAsync`, SAF) of delen via expo-sharing (`src/screens/ExportSection.tsx`,
