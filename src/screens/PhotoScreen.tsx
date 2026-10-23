@@ -45,11 +45,14 @@ type Line = {
   alternatives: Food[];
 };
 
-/** Waar de herkenning vandaan komt: een foto (uri) of alleen je beschrijving (uri leeg). */
+/** Max. aantal foto's uit de galerij per keer (alles gaat samen in één AI-aanvraag). */
+const MAX_PHOTOS = 8;
+
+/** Waar de herkenning vandaan komt: één of meer foto's (uris) of alleen je beschrijving (uris leeg). */
 type Phase =
   | { kind: 'start' }
-  | { kind: 'busy'; uri: string | null }
-  | { kind: 'result'; uri: string | null; title: string; note: string; hiddenFat: boolean; used: number | null; limit: number | null }
+  | { kind: 'busy'; uris: string[] }
+  | { kind: 'result'; uris: string[]; title: string; note: string; hiddenFat: boolean; used: number | null; limit: number | null }
   | { kind: 'error'; message: string };
 
 let counter = 0;
@@ -81,21 +84,21 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
   const signedIn = !!cloud.email;
 
   /** Stuurt een foto (base64) of alleen de beschrijving naar de AI en zet het resultaat klaar om na te kijken. */
-  const recognize = async (uri: string | null, getImage: () => Promise<string | null>) => {
-    setPhase({ kind: 'busy', uri });
+  const recognize = async (uris: string[], getImages: () => Promise<string[]>) => {
+    setPhase({ kind: 'busy', uris });
     setLines([]);
     setOpenKey(null);
     setAdding(false);
     try {
-      const b64 = uri ? await getImage() : null;
-      if (uri && !b64) throw new Error('De foto kon niet worden gelezen. Probeer een andere.');
-      const reply = await recognizeFood(b64, hint.trim());
+      const images = uris.length ? await getImages() : [];
+      if (uris.length && images.length < uris.length) throw new Error(uris.length > 1 ? 'Een van de foto’s kon niet worden gelezen. Probeer andere foto’s.' : 'De foto kon niet worden gelezen. Probeer een andere.');
+      const reply = await recognizeFood(images, hint.trim());
       const result = parsePhotoResult(reply.result);
       const matches = matchAll(result, find);
       setLines(
         matches.map((m) => ({ key: nextKey(), food: m.food, grams: m.grams, text: String(m.grams), source: m.source, item: m.item, alternatives: m.alternatives })),
       );
-      setPhase({ kind: 'result', uri, title: result.title, note: result.note, hiddenFat: result.hiddenFat, used: reply.used, limit: reply.limit });
+      setPhase({ kind: 'result', uris, title: result.title, note: result.note, hiddenFat: result.hiddenFat, used: reply.used, limit: reply.limit });
     } catch (e: any) {
       setPhase({ kind: 'error', message: e?.message ?? 'Herkennen lukte niet. Probeer het opnieuw.' });
     }
@@ -103,7 +106,7 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
 
   const describe = () => {
     if (hint.trim().length < 2) return;
-    recognize(null, async () => null);
+    recognize([], async () => []);
   };
 
   // Vanuit het zoekveld ("Laat de AI dit invullen") meteen starten.
@@ -124,10 +127,25 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
         }
       }
       const opts: any = { mediaTypes: ['images'], quality: 1 };
+      if (from === 'library') {
+        opts.allowsMultipleSelection = true;
+        opts.selectionLimit = MAX_PHOTOS;
+        opts.orderedSelection = true;
+      }
       const res = from === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets?.length) return;
-      const a = res.assets[0];
-      await recognize(a.uri, () => shrink(a.uri, a.width, a.height));
+      const assets = res.assets.slice(0, MAX_PHOTOS);
+      await recognize(
+        assets.map((a) => a.uri),
+        async () => {
+          const out: string[] = [];
+          for (const a of assets) {
+            const b = await shrink(a.uri, a.width, a.height);
+            if (b) out.push(b);
+          }
+          return out;
+        },
+      );
     } catch (e: any) {
       setPhase({ kind: 'error', message: e?.message ?? 'Herkennen lukte niet. Probeer het opnieuw.' });
     }
@@ -233,11 +251,11 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
           </View>
           <Button label="Herken tekst" icon="edit" disabled={hint.trim().length < 2} onPress={describe} />
           <T size={13} weight="semibold" color={C.muted} style={{ textAlign: 'center', marginVertical: 2 }}>
-            of met een foto (je tekst geldt dan als hint)
+            of met een foto, of met meerdere uit je galerij (je tekst geldt dan als hint)
           </T>
           <Row style={{ gap: 10 }}>
             <Button label="Foto maken" icon="camera" variant="outline" onPress={() => pick('camera')} style={{ flex: 1 }} small />
-            <Button label="Galerij" icon="image" variant="outline" onPress={() => pick('library')} style={{ flex: 1 }} small />
+            <Button label="Galerij (meerdere)" icon="image" variant="outline" onPress={() => pick('library')} style={{ flex: 1 }} small />
           </Row>
           <T size={12} color={C.muted} style={{ lineHeight: 17 }}>
             Je tekst of foto gaat via onze server naar Google Gemini en wordt niet bewaard.
@@ -247,8 +265,8 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
 
       {phase.kind === 'busy' ? (
         <Card style={{ alignItems: 'center', gap: 14 }}>
-          {phase.uri ? (
-            <Image source={{ uri: phase.uri }} style={{ width: '100%', height: 220, borderRadius: 14 }} resizeMode="cover" />
+          {phase.uris.length ? (
+            <Thumbs uris={phase.uris} height={phase.uris.length > 1 ? 110 : 220} />
           ) : (
             <T size={15} color={C.soft} style={{ textAlign: 'center', fontStyle: 'italic' }}>
               “{hint.trim()}”
@@ -256,7 +274,7 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
           )}
           <ActivityIndicator color={C.accent} />
           <T size={15} weight="semibold">
-            {phase.uri ? 'Even kijken wat er op je bord ligt…' : 'Even uitzoeken wat je bedoelt…'}
+            {phase.uris.length > 1 ? `Even kijken wat er op je ${phase.uris.length} foto’s staat…` : phase.uris.length ? 'Even kijken wat er op je bord ligt…' : 'Even uitzoeken wat je bedoelt…'}
           </T>
         </Card>
       ) : null}
@@ -264,7 +282,7 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
       {phase.kind === 'result' ? (
         <>
           <Row style={{ gap: 12 }}>
-            {phase.uri ? <Image source={{ uri: phase.uri }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="cover" /> : null}
+            {phase.uris.length ? <Image source={{ uri: phase.uris[0] }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="cover" /> : null}
             <View style={{ flex: 1, gap: 2 }}>
               <T size={17} weight="bold" numberOfLines={2}>
                 {phase.title}
@@ -303,7 +321,7 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
                 Gebakken in olie of boter?
               </T>
               <T size={14} color={C.muted} style={{ lineHeight: 20 }}>
-                {phase.uri ? 'Dat zie je niet goed op een foto' : 'Dat stond er niet bij'}, maar het telt flink mee. Een eetlepel is ongeveer 10 g.
+                {phase.uris.length ? 'Dat zie je niet goed op een foto' : 'Dat stond er niet bij'}, maar het telt flink mee. Een eetlepel is ongeveer 10 g.
               </T>
               <Row style={{ gap: 8 }}>
                 <Button small variant="outline" label="+ Olie 10 g" onPress={() => addFat('Olijfolie', 'olie olijf', 10)} style={{ flex: 1 }} />
@@ -342,7 +360,7 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
             disabled={!items.length}
             onPress={() => logIt(true)}
           />
-          <Button small variant="ghost" icon={phase.uri ? 'camera' : 'edit'} label={phase.uri ? 'Nieuwe foto' : 'Beschrijving aanpassen'} onPress={() => setPhase({ kind: 'start' })} />
+          <Button small variant="ghost" icon={phase.uris.length ? 'camera' : 'edit'} label={phase.uris.length > 1 ? 'Nieuwe foto’s' : phase.uris.length ? 'Nieuwe foto' : 'Beschrijving aanpassen'} onPress={() => setPhase({ kind: 'start' })} />
 
           <T size={12} color={C.muted} style={{ lineHeight: 17 }}>
             Grammen zijn een schatting van de AI: kijk ze na.{phase.used && phase.limit ? ` Vandaag ${phase.used} van ${phase.limit} keer AI gebruikt.` : ''} Waarden: NEVO-online versie 2025/9.0, RIVM, Bilthoven, of je eigen producten.
@@ -350,6 +368,26 @@ export function PhotoScreen({ meal: startMeal, date, text }: { meal: MealId; dat
         </>
       ) : null}
     </Screen>
+  );
+}
+
+/** Eén of meer foto's naast elkaar (tijdens het herkennen). */
+function Thumbs({ uris, height }: { uris: string[]; height: number }) {
+  if (uris.length > 4) {
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, width: '100%' }}>
+        {uris.map((u) => (
+          <Image key={u} source={{ uri: u }} style={{ width: '23.5%', aspectRatio: 1, borderRadius: 10 }} resizeMode="cover" />
+        ))}
+      </View>
+    );
+  }
+  return (
+    <Row style={{ gap: 6, width: '100%' }}>
+      {uris.map((u) => (
+        <Image key={u} source={{ uri: u }} style={{ flex: 1, height, borderRadius: 14 }} resizeMode="cover" />
+      ))}
+    </Row>
   );
 }
 

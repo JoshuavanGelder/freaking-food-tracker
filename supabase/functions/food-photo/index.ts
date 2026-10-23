@@ -1,7 +1,7 @@
 // Edge Function "food-photo": herkent eten op een foto of in een beschrijving ("2 kiwi's en een banaan")
 // met Google Gemini (gratis laag van Google AI Studio).
 //
-// De app stuurt { image?: <base64-JPEG>, hint?: string } met de sessie van de gebruiker (Authorization: Bearer ...)
+// De app stuurt { images?: <base64-JPEG>[] (max. 8, van dezelfde maaltijd), image?: <één base64-JPEG, oudere apps>, hint?: string } met de sessie van de gebruiker (Authorization: Bearer ...)
 // en de publishable key (apikey). Zonder foto is `hint` de beschrijving. De functie:
 //   1. telt de aanvraag in de database via rpc use_photo() — dat werkt alleen met een geldige login, dus dit is ook
 //      de logincontrole — en weigert boven de daglimiet (foto's en beschrijvingen samen);
@@ -16,7 +16,9 @@
 // Uitrollen zonder JWT-controle door de gateway (verify_jwt = false): de functie controleert de login zelf via use_photo().
 
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash'];
-const MAX_IMAGE_CHARS = 6_000_000; // ~4,5 MB als JPEG; de app stuurt ~150 kB
+const MAX_IMAGE_CHARS = 6_000_000; // ~4,5 MB als JPEG per foto; de app stuurt ~150 kB
+const MAX_IMAGES = 8;
+const MAX_TOTAL_CHARS = 16_000_000;
 
 const FIELDS = `Per onderdeel:
 - naam: korte Nederlandse naam zoals een Nederlander het noemt, enkelvoud, zonder aantal, bijv. "Kipfilet", "Witte rijst", "Kiwi", "Pindasaus".
@@ -37,7 +39,8 @@ Verder:
 - opmerking: hooguit één korte zin in het Nederlands met iets wat de gebruiker moet nakijken, of een lege tekst.`;
 
 const PHOTO_PROMPT = `Je bent de voedingsassistent van een Nederlandse calorie-app. Bekijk de foto van een maaltijd, snack of drankje.
-Noem elk los eetbaar onderdeel dat je ziet (maximaal 8). Voeg niets toe wat je niet ziet, behalve wat de hint van de gebruiker noemt.
+Noem elk los eetbaar onderdeel dat je ziet (maximaal 8; bij meerdere foto's maximaal 15). Voeg niets toe wat je niet ziet, behalve wat de hint van de gebruiker noemt.
+Krijg je meerdere foto's, dan horen ze bij één maaltijd of één eetmoment. Zie je op verschillende foto's duidelijk dezelfde schotel (andere hoek, close-up), tel die dan één keer. Zijn het verschillende borden, gerechten of drankjes, neem dan alles samen op in één lijst.
 
 ${FIELDS.replace('GRAM_REGEL', 'gram: geschatte hoeveelheid die op de foto te zien is, in gram (dranken in ml). Gebruik bord (meestal 26 cm), bestek, glas of hand als maat.')}
 Is er geen eten of drinken te zien, geef dan een lege lijst en zeg dat in opmerking.
@@ -111,9 +114,9 @@ async function countPhoto(req: Request): Promise<{ count: number } | { error: Re
 
 type Gemini = { ok: true; data: unknown; model: string } | { ok: false; status: number; message: string };
 
-async function askGemini(key: string, models: string[], image: string, hint: string): Promise<Gemini> {
-  const parts = image
-    ? [{ inline_data: { mime_type: 'image/jpeg', data: image } }, { text: hint ? `${PHOTO_PROMPT}\n\nHint van de gebruiker: ${hint}` : PHOTO_PROMPT }]
+async function askGemini(key: string, models: string[], images: string[], hint: string): Promise<Gemini> {
+  const parts = images.length
+    ? [...images.map((data) => ({ inline_data: { mime_type: 'image/jpeg', data } })), { text: hint ? `${PHOTO_PROMPT}\n\nHint van de gebruiker: ${hint}` : PHOTO_PROMPT }]
     : [{ text: `${TEXT_PROMPT}\n\nBeschrijving van de gebruiker: ${hint}` }];
   let last: Gemini = { ok: false, status: 502, message: 'Geen model beschikbaar.' };
   for (const model of models) {
@@ -159,18 +162,26 @@ Deno.serve(async (req) => {
   const key = Deno.env.get('GEMINI_API_KEY');
   if (!key) return json(503, { error: 'no_key', message: 'Fotoherkenning is nog niet ingesteld (GEMINI_API_KEY ontbreekt).' });
 
-  let body: { image?: unknown; hint?: unknown };
+  let body: { image?: unknown; images?: unknown; hint?: unknown };
   try {
     body = await req.json();
   } catch {
     return json(400, { error: 'bad_request', message: 'Ongeldig verzoek.' });
   }
-  const image = typeof body.image === 'string' ? body.image.replace(/^data:image\/\w+;base64,/, '') : '';
+  const raw: unknown[] = Array.isArray(body.images) ? body.images : typeof body.image === 'string' ? [body.image] : [];
+  const images = raw
+    .filter((x): x is string => typeof x === 'string')
+    .map((x) => x.replace(/^data:image\/\w+;base64,/, ''))
+    .filter(Boolean)
+    .slice(0, MAX_IMAGES);
   const hint = typeof body.hint === 'string' ? body.hint.trim().slice(0, 500) : '';
-  if (!image && hint.length < 2) {
+  if (!images.length && hint.length < 2) {
     return json(400, { error: 'empty', message: 'Maak een foto of beschrijf wat je at.' });
   }
-  if (image && (image.length > MAX_IMAGE_CHARS || !/^[A-Za-z0-9+/=\s]+$/.test(image.slice(0, 2000)))) {
+  if (
+    images.length &&
+    (images.reduce((n, x) => n + x.length, 0) > MAX_TOTAL_CHARS || images.some((x) => x.length > MAX_IMAGE_CHARS || !/^[A-Za-z0-9+/=\s]+$/.test(x.slice(0, 2000))))
+  ) {
     return json(400, { error: 'bad_image', message: 'De foto kwam niet goed aan. Probeer het opnieuw.' });
   }
 
@@ -182,7 +193,7 @@ Deno.serve(async (req) => {
   }
 
   const models = (Deno.env.get('GEMINI_MODELS') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const ai = await askGemini(key, models.length ? models : DEFAULT_MODELS, image, hint);
+  const ai = await askGemini(key, models.length ? models : DEFAULT_MODELS, images, hint);
   if (!ai.ok) return json(ai.status, { error: 'ai', message: ai.message });
 
   return json(200, { result: ai.data, model: ai.model, used: counted.count, limit });

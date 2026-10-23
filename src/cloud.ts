@@ -455,14 +455,15 @@ export function isSignedIn(): boolean {
 
 export type PhotoReply = { result: unknown; used: number | null; limit: number | null };
 
-export async function recognizeFood(imageBase64: string | null, hint: string): Promise<PhotoReply> {
+/** `images` = één of meer verkleinde foto's (base64-JPEG, max. 4) van dezelfde maaltijd; leeg = alleen de beschrijving. */
+export async function recognizeFood(images: string[], hint: string): Promise<PhotoReply> {
   const s = await validSession();
   let res: Response;
   try {
     res = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/food-photo', {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${s.accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(imageBase64 ? { image: imageBase64, hint } : { hint }),
+      body: JSON.stringify(images.length ? { images, hint } : { hint }),
     });
   } catch {
     throw new CloudError('Geen verbinding met internet. Zoeken en scannen werken wel.');
