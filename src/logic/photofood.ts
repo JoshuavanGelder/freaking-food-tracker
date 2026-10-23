@@ -22,7 +22,7 @@ export type PhotoItem = {
 
 export type PhotoResult = { title: string; items: PhotoItem[]; hiddenFat: boolean; note: string };
 
-const MAX_ITEMS = 10;
+const MAX_ITEMS = 40; // genoeg voor een hele reeks borden (all-you-can-eat); de AI-functie stuurt zelf minder
 
 function num(x: unknown, min: number, max: number): number | null {
   const n = typeof x === 'number' ? x : typeof x === 'string' ? Number(x.replace(',', '.')) : NaN;

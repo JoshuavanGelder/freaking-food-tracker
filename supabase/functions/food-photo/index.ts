@@ -39,7 +39,7 @@ Verder:
 - opmerking: hooguit één korte zin in het Nederlands met iets wat de gebruiker moet nakijken, of een lege tekst.`;
 
 const PHOTO_PROMPT = `Je bent de voedingsassistent van een Nederlandse calorie-app. Bekijk de foto van een maaltijd, snack of drankje.
-Noem elk los eetbaar onderdeel dat je ziet (maximaal 8; bij meerdere foto's maximaal 15). Voeg niets toe wat je niet ziet, behalve wat de hint van de gebruiker noemt.
+Noem elk los eetbaar onderdeel dat je ziet (maximaal 12; bij meerdere foto's maximaal 40, geef dan álle onderdelen en laat geen kleine dingen weg). Voeg niets toe wat je niet ziet, behalve wat de hint van de gebruiker noemt.
 Krijg je meerdere foto's, dan horen ze bij één maaltijd of één eetmoment. Zie je op verschillende foto's duidelijk dezelfde schotel (andere hoek, close-up), tel die dan één keer. Zijn het verschillende borden, gerechten of drankjes, neem dan alles samen op in één lijst.
 
 ${FIELDS.replace('GRAM_REGEL', 'gram: geschatte hoeveelheid die op de foto te zien is, in gram (dranken in ml). Gebruik bord (meestal 26 cm), bestek, glas of hand als maat.')}
@@ -47,7 +47,7 @@ Is er geen eten of drinken te zien, geef dan een lege lijst en zeg dat in opmerk
 Hoeveelheden of producten in de hint van de gebruiker gaan altijd voor op wat je zelf schat.`;
 
 const TEXT_PROMPT = `Je bent de voedingsassistent van een Nederlandse calorie-app. De gebruiker beschrijft in eigen woorden wat hij at of dronk,
-bijvoorbeeld "2 kiwi's en een banaan" of "bord spaghetti bolognese en een glas cola". Maak daar een lijst van (maximaal 10 onderdelen).
+bijvoorbeeld "2 kiwi's en een banaan" of "bord spaghetti bolognese en een glas cola". Maak daar een lijst van (maximaal 20 onderdelen).
 Neem alleen op wat de gebruiker noemt; voeg geen bijgerechten toe die er niet staan. Een samengesteld gerecht (stamppot, lasagne,
 pizza, soep) mag één onderdeel zijn als dat in NEVO voorkomt; anders splits je het in de hoofdingrediënten.
 Dezelfde soort met een aantal ("2 kiwi's") is één onderdeel met het totaal aantal gram.

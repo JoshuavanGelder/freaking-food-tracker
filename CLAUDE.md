@@ -103,7 +103,7 @@ te volgen en gewicht bij te houden. Eigenaar: Joshua van Gelder (Nederlands; ant
   op een beschrijving lijkt: cijfer, komma, "en"/"met" of 3+ woorden; dan start het scherm meteen). Beschrijving zonder foto
   ("2 kiwi's en een banaan") gaat als `hint` zonder `image` naar de functie (TEXT_PROMPT: stuks → gram met vaste gewichten,
   veld `portie`); met foto is de tekst een hint (PHOTO_PROMPT). Daglimiet telt foto's en tekst samen.
-  Foto maken (1 foto) of uit de galerij (`expo-image-picker`, tot `MAX_PHOTOS` = 8 tegelijk), elke foto verkleinen tot 1024 px (`expo-image-manipulator`), alle foto's samen in één aanvraag (`images: string[]`, telt 1× voor de daglimiet; de functie neemt ook nog het oude `image`) naar de Edge
+  Foto maken (1 foto) of uit de galerij (`expo-image-picker`, tot `MAX_PHOTOS` = 8 tegelijk), elke foto verkleinen tot 1024 px (`expo-image-manipulator`), alle foto's samen in één aanvraag (AI noemt max. 12 onderdelen bij 1 foto, 40 bij meer; `MAX_ITEMS` in photofood.ts = 40) (`images: string[]`, telt 1× voor de daglimiet; de functie neemt ook nog het oude `image`) naar de Edge
   Function `supabase/functions/food-photo` (`recognizeFood` in `src/cloud.ts`, alleen ingelogd). Die telt via rpc
   `use_photo()` (tabel `photo_usage`, ook de logincontrole) en vraagt Google Gemini (gratis laag AI Studio; secret
   `GEMINI_API_KEY`, optioneel `GEMINI_MODELS`, `PHOTO_DAILY_LIMIT` standaard 25) om onderdelen met NEVO-achtige zoekterm

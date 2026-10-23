@@ -141,3 +141,9 @@ test('beschrijving: kiwi, banaan en andere stuks koppelen aan NEVO', () => {
     assert.equal(m.grams, 150);
   }
 });
+
+test('parsePhotoResult houdt een lange lijst (all-you-can-eat) vast', () => {
+  const onderdelen = Array.from({ length: 35 }, (_, i) => ({ naam: `Ding ${i}`, zoekterm: `ding ${i}`, gram: 50, eenheid: 'g', zekerheid: 'midden', kcal: 100, eiwit: 1, koolhydraten: 10, vet: 2 }));
+  const r = parsePhotoResult({ titel: 'Buffet', onderdelen, verborgen_vet: false, opmerking: '' });
+  assert.equal(r.items.length, 35);
+});
