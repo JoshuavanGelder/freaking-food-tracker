@@ -309,6 +309,21 @@ export function portionCount(food: Food, amount: number): number | null {
   return half > 0 && Math.abs(ratio - half) < 0.01 ? half : null;
 }
 
+/**
+ * Zoekresultaten (NEVO, Open Food Facts) en scans leveren steeds de oorspronkelijke portiegrootte.
+ * Heeft de gebruiker die eerder aangepast (of een eigen keukenmaat ingesteld), dan wint de bewaarde versie.
+ */
+export function withSavedServing(food: Food, saved?: Food | null): Food {
+  if (!saved || saved.id !== food.id) return food;
+  const out: Food = { ...food };
+  if (saved.servingG != null) {
+    out.servingG = saved.servingG;
+    out.servingLabel = saved.servingLabel;
+  }
+  if (saved.measures) out.measures = saved.measures;
+  return out;
+}
+
 /** "2× 1 bolletje · 100 g" of gewoon "100 g". */
 export function amountText(food: Food, amount: number): string {
   if (food.id.startsWith('summary:')) return 'dagtotaal';

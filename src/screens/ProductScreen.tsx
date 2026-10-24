@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { forGrams, nl, parseNumber, sumNutrition } from '../logic/calc';
-import { Food, portionCount, unitOf } from '../logic/off';
+import { Food, portionCount, unitOf, withSavedServing } from '../logic/off';
 import { MeasureId, measureById, measureCount, measureSize, measuresFor, withMeasure } from '../logic/measures';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
@@ -32,7 +32,9 @@ export function ProductScreen({
   const nav = useNav();
   const goal = useGoal();
   // Oudere NEVO-producten (uit recent of favorieten) krijgen de micro's alsnog.
-  const food = useMemo(() => withNevoData(routeFood), [routeFood]);
+  // Een eerder aangepaste portiegrootte (en keukenmaat) van dit product blijft bewaard.
+  const saved = state.foods[routeFood.id];
+  const food = useMemo(() => withNevoData(withSavedServing(routeFood, saved)), [routeFood, saved]);
   const start = initial ?? food.servingG ?? 100;
   const startCount = portionCount(food, start);
   const [mode, setMode] = useState<'portie' | 'maat' | 'gram'>(food.servingG && (initial == null || startCount != null) ? 'portie' : 'gram');

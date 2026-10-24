@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toFood, parseAmount, portionCount, amountText, normalizeBarcode, isStoreLabel, hasValidCheckDigit } from './off.ts';
+import { toFood, parseAmount, portionCount, amountText, normalizeBarcode, isStoreLabel, hasValidCheckDigit, withSavedServing } from './off.ts';
 
 test('Open Food Facts product omzetten', () => {
   const f = toFood({
@@ -81,6 +81,20 @@ test('hoeveelheden uit tekst', () => {
   assert.deepEqual(parseAmount('1,5 l'), { n: 1500, unit: 'ml' });
   assert.deepEqual(parseAmount('250ml'), { n: 250, unit: 'ml' });
   assert.equal(parseAmount('1 stuk'), null);
+});
+
+test('bewaarde portiegrootte wint van het zoekresultaat', () => {
+  const fresh = { id: 'off:1', name: 'Chawmallow spek', per: { kcal: 330, e: 3, k: 80, v: 0 }, servingG: 25, servingLabel: '1 portie', unit: 'g' as const, source: 'off' as const };
+  const saved = { ...fresh, servingG: 6, servingLabel: undefined, measures: { el: 10 } };
+  const out = withSavedServing(fresh, saved);
+  assert.equal(out.servingG, 6);
+  assert.equal(out.servingLabel, undefined);
+  assert.deepEqual(out.measures, { el: 10 });
+  assert.equal(portionCount(out, 12), 2);
+  assert.equal(withSavedServing(fresh, undefined), fresh);
+  assert.equal(withSavedServing(fresh, { ...saved, id: 'off:2' }), fresh);
+  // Zonder eigen portie in de bewaarde versie blijft de oorspronkelijke portie staan.
+  assert.equal(withSavedServing(fresh, { ...fresh, servingG: undefined }).servingG, 25);
 });
 
 test('porties tellen en tonen', () => {
