@@ -44,3 +44,26 @@ export function searchMine(src: MineSource, query: string, exclude: Set<string> 
   }
   return out;
 }
+
+/**
+ * Recent voor één maaltijd: producten die je eerder bij precies deze maaltijd hebt gelogd.
+ * Nieuwste dag eerst (binnen een dag: laatst toegevoegd eerst), elk product één keer, dagtotalen van een import
+ * (`summary:`) komen nooit mee. `foods` geeft de nieuwste versie van een product (bv. aangepaste keukenmaat).
+ */
+export function recentForMeal(
+  log: { date: string; meal: string; food: Food }[],
+  foods: Record<string, Food>,
+  meal: string,
+  limit = 40,
+): Food[] {
+  const sorted = log.filter((e) => e.meal === meal).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const seen = new Set<string>();
+  const out: Food[] = [];
+  for (let i = sorted.length - 1; i >= 0 && out.length < limit; i--) {
+    const f = sorted[i].food;
+    if (!f || seen.has(f.id) || f.id.startsWith('summary:')) continue;
+    seen.add(f.id);
+    out.push(foods[f.id] ?? f);
+  }
+  return out;
+}

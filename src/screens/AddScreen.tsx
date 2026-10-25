@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { nl } from '../logic/calc';
 import { Food, amountText, searchFoods, unitOf } from '../logic/off';
 import { nevoToFood, searchIn } from '../logic/nevo';
-import { searchMine } from '../logic/mine';
+import { recentForMeal, searchMine } from '../logic/mine';
 import { NEVO } from '../data/nevo';
 import { MealId, mealLabel, useApp } from '../store';
 import { useNav } from '../nav';
@@ -77,19 +77,7 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const open = (food: Food) => nav.push({ name: 'product', food, meal, date, grams: state.lastPortion[food.id] });
   const byIds = (ids: string[]) => ids.map((id) => state.foods[id]).filter(Boolean) as Food[];
   // Recent voor deze maaltijd: producten die je eerder bij precies deze maaltijd hebt gelogd, nieuwste eerst.
-  const mealRecent = useMemo(() => {
-    if (pickMeal) return [] as Food[];
-    const seen = new Set<string>();
-    const out: Food[] = [];
-    const sorted = state.log.filter((e) => e.meal === meal).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const f = sorted[i].food;
-      if (!f || seen.has(f.id)) continue;
-      seen.add(f.id);
-      out.push(state.foods[f.id] ?? f);
-    }
-    return out;
-  }, [state.log, state.foods, meal, pickMeal]);
+  const mealRecent = useMemo(() => (pickMeal ? [] : recentForMeal(state.log, state.foods, meal)), [state.log, state.foods, meal, pickMeal]);
   const own = Object.values(state.foods).filter((f) => f.source === 'eigen');
 
   const list = (foods: Food[], editable = false) => (

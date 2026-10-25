@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { searchMine } from './mine.ts';
+import { recentForMeal, searchMine } from './mine.ts';
 import type { Food } from './off.ts';
 
 const f = (id: string, name: string, source: Food['source'] = 'off', brand?: string): Food => ({
@@ -48,4 +48,23 @@ test('uitsluiten wat al bij de basisproducten staat', () => {
 test('te korte zoekopdracht en limiet', () => {
   assert.deepEqual(searchMine(src, 'k'), []);
   assert.equal(searchMine(src, 'kwark', new Set(), 2).length, 2);
+});
+
+test('recent per maaltijd: alleen die maaltijd, nieuwste eerst, geen dubbelen, geen dagtotalen', () => {
+  const log = [
+    { date: '2026-10-20', meal: 'ontbijt', food: foods['off:1'] },
+    { date: '2026-10-22', meal: 'ontbijt', food: foods['off:4'] },
+    { date: '2026-10-22', meal: 'lunch', food: foods['eigen:5'] },
+    { date: '2026-10-23', meal: 'ontbijt', food: foods['off:1'] },
+    { date: '2026-10-23', meal: 'ontbijt', food: foods['summary:2026-09-22'] },
+    { date: '2026-10-21', meal: 'ontbijt', food: foods['nevo:2'] },
+  ];
+  assert.deepEqual(recentForMeal(log, foods, 'ontbijt').map((x) => x.id), ['off:1', 'off:4', 'nevo:2']);
+  assert.deepEqual(recentForMeal(log, foods, 'lunch').map((x) => x.id), ['eigen:5']);
+  assert.deepEqual(recentForMeal(log, foods, 'diner'), []);
+});
+
+test('recent per maaltijd: maximaal het opgegeven aantal', () => {
+  const log = ['off:1', 'nevo:2', 'off:4'].map((id, i) => ({ date: `2026-10-0${i + 1}`, meal: 'snacks', food: foods[id] }));
+  assert.deepEqual(recentForMeal(log, foods, 'snacks', 2).map((x) => x.id), ['off:4', 'nevo:2']);
 });
