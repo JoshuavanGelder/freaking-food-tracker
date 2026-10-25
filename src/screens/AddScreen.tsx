@@ -13,10 +13,14 @@ import { BackHeader, Button, Empty, HeartButton, IconButton, Row, Screen, Segmen
 
 type TabId = 'recent' | 'fav' | 'eigen';
 
+function mealRecentInit(state: { log: { meal: MealId; food: Food }[] }, meal: MealId, picking: boolean): boolean {
+  return !picking && state.log.some((e) => e.meal === meal);
+}
+
 export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const { state, actions } = useApp();
   const nav = useNav();
-  const [tab, setTab] = useState<TabId>(state.recent.length ? 'recent' : 'fav');
+  const [tab, setTab] = useState<TabId>(mealRecentInit(state, meal, !!nav.pickFor) ? 'recent' : 'fav');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Food[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -72,6 +76,20 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
 
   const open = (food: Food) => nav.push({ name: 'product', food, meal, date, grams: state.lastPortion[food.id] });
   const byIds = (ids: string[]) => ids.map((id) => state.foods[id]).filter(Boolean) as Food[];
+  // Recent voor deze maaltijd: producten die je eerder bij precies deze maaltijd hebt gelogd, nieuwste eerst.
+  const mealRecent = useMemo(() => {
+    if (pickMeal) return [] as Food[];
+    const seen = new Set<string>();
+    const out: Food[] = [];
+    const sorted = state.log.filter((e) => e.meal === meal).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const f = sorted[i].food;
+      if (!f || seen.has(f.id)) continue;
+      seen.add(f.id);
+      out.push(state.foods[f.id] ?? f);
+    }
+    return out;
+  }, [state.log, state.foods, meal, pickMeal]);
   const own = Object.values(state.foods).filter((f) => f.source === 'eigen');
 
   const list = (foods: Food[], editable = false) => (
@@ -210,10 +228,10 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
           />
 
           {tab === 'recent' ? (
-            state.recent.length ? (
-              list(byIds(state.recent))
+            mealRecent.length ? (
+              list(mealRecent)
             ) : (
-              <Empty title="Nog niets gegeten" text="Zoek of scan een product. Wat je toevoegt, verschijnt hier voor de volgende keer." />
+              <Empty title={`Nog niets bij ${mealLabel(meal)}`} text="Zoek of scan een product. Wat je hier toevoegt, verschijnt de volgende keer bij deze maaltijd." />
             )
           ) : null}
 
