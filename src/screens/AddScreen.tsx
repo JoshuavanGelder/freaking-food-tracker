@@ -77,7 +77,8 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
   const open = (food: Food) => nav.push({ name: 'product', food, meal, date, grams: state.lastPortion[food.id] });
   const byIds = (ids: string[]) => ids.map((id) => state.foods[id]).filter(Boolean) as Food[];
   // Recent voor deze maaltijd: producten die je eerder bij precies deze maaltijd hebt gelogd, nieuwste eerst.
-  const mealRecent = useMemo(() => (pickMeal ? [] : recentForMeal(state.log, state.foods, meal)), [state.log, state.foods, meal, pickMeal]);
+  const mealRecent = useMemo(() => (pickMeal ? [] : recentForMeal(state.log, state.foods, meal, Infinity)), [state.log, state.foods, meal, pickMeal]);
+  const [recentShown, setRecentShown] = useState(20);
   const own = Object.values(state.foods).filter((f) => f.source === 'eigen');
 
   const list = (foods: Food[], editable = false) => (
@@ -217,7 +218,17 @@ export function AddScreen({ meal, date }: { meal: MealId; date: string }) {
 
           {tab === 'recent' ? (
             mealRecent.length ? (
-              list(mealRecent)
+              <View style={{ gap: 8 }}>
+                {list(mealRecent.slice(0, recentShown))}
+                {mealRecent.length > recentShown ? (
+                  <Button
+                    small
+                    variant="outline"
+                    label={`Meer laden (${mealRecent.length - recentShown} te gaan)`}
+                    onPress={() => setRecentShown((n) => n + 20)}
+                  />
+                ) : null}
+              </View>
             ) : (
               <Empty title={`Nog niets bij ${mealLabel(meal)}`} text="Zoek of scan een product. Wat je hier toevoegt, verschijnt de volgende keer bij deze maaltijd." />
             )
