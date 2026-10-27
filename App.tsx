@@ -158,7 +158,7 @@ function Root() {
         );
         break;
       case 'add':
-        screen = <AddScreen key={stack.length} meal={route.meal} date={route.date} />;
+        screen = null;
         break;
       case 'scan':
         screen = <ScanScreen key={stack.length} meal={route.meal} date={route.date} />;
@@ -211,9 +211,35 @@ function Root() {
     }
   }
 
+  // Het zoekscherm blijft (onzichtbaar) bestaan zolang je een product, scan of foto opent,
+  // zodat je zoekopdracht en resultaten er nog staan als je terugkomt. Altijd op dezelfde plek
+  // in de weergave, anders start het scherm opnieuw op.
+  let addIndex = -1;
+  if (route.name === 'add') addIndex = stack.length - 1;
+  else if (route.name !== 'tabs') {
+    for (let i = stack.length - 2; i >= 0; i--) {
+      const n = stack[i].name;
+      if (n === 'add') {
+        addIndex = i;
+        break;
+      }
+      if (n === 'tabs') break;
+    }
+  }
+  const addRoute = addIndex >= 0 ? stack[addIndex] : null;
+  const addSlot =
+    addRoute && addRoute.name === 'add' && (state.profile || false) ? (
+      <View key="add-slot" style={{ flex: 1, display: route.name === 'add' ? 'flex' : 'none' }}>
+        <AddScreen key={addIndex + 1} meal={addRoute.meal} date={addRoute.date} />
+      </View>
+    ) : null;
+
   return (
     <NavProvider value={nav}>
-      <View style={{ flex: 1, backgroundColor: C.bg }}>{screen}</View>
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        {addSlot}
+        {route.name === 'add' && addSlot ? null : screen}
+      </View>
     </NavProvider>
   );
 }
